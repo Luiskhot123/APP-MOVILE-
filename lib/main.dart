@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'pages/inventory_page.dart';
+import 'pages/crear_producto_page.dart';
+
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +19,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const Home(),
+      routes: {
+        '/crear_producto': (context) => const CrearProductoPage(),
+      },
     );
   }
 }

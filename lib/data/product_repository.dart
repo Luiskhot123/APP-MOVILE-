@@ -8,7 +8,7 @@ class ProductRepository {
     int? lowStockThreshold,
   }) async {
     final db = await AppDatabase.instance.database;
-
+    final int threshold = lowStockThreshold ?? 5;
     String where = "1=1";
     List<Object?> whereArgs = [];
 
@@ -19,7 +19,7 @@ class ProductRepository {
       where += " AND stock = 0";
     }
     if (lowStockThreshold != null) {
-      where += " AND stock <= ?";
+      where += " AND stock <= ? AND stock > 0";
       whereArgs.add(lowStockThreshold);
     }
 
@@ -36,4 +36,10 @@ class ProductRepository {
 
     return result.map((row) => Product.fromMap(row)).toList();
   }
+
+  Future<void> insertProduct(Map<String, dynamic> data) async {
+    final db = await AppDatabase.instance.database;
+    await db.insert("productos", data);
+  }
+
 }

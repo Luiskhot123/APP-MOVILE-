@@ -48,32 +48,34 @@ class _InventoryPageState extends State<InventoryPage> {
               selected: _tab == StockTab.agotado,
               onTap: () => setState(() => _tab = StockTab.agotado),
             ),
-            const SizedBox(width: 12),
-            if (_tab == StockTab.enStock)
-              PopupMenuButton<EnStockMenu>(
-                onSelected: (v) => setState(() => _menu = v),
-                itemBuilder: (ctx) => const [
-                  PopupMenuItem(value: EnStockMenu.todos, child: Text('Todos')),
-                  PopupMenuItem(value: EnStockMenu.bajoStock, child: Text('Bajo stock')),
-                ],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade400),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.menu, size: 18),
-                      const SizedBox(width: 6),
-                      Text(_menu == EnStockMenu.todos ? 'Todos' : 'Bajo stock'),
-                    ],
-                  ),
-                ),
-              ),
+            // const SizedBox(width: 12),
           ],
         ),
         const Divider(height: 24),
+
+        if (_tab == StockTab.enStock)
+          PopupMenuButton<EnStockMenu>(
+            onSelected: (v) => setState(() => _menu = v),
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(value: EnStockMenu.todos, child: Text('Todos')),
+              PopupMenuItem(value: EnStockMenu.bajoStock, child: Text('Bajo stock')),
+            ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade400),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.menu, size: 18),
+                  const SizedBox(width: 6),
+                  Text(_menu == EnStockMenu.todos ? 'Todos' : 'Bajo stock'),
+                ],
+              ),
+            ),
+          ),
+
         Expanded(
           child: FutureBuilder<List<Product>>(
             future: _load(),
@@ -87,9 +89,26 @@ class _InventoryPageState extends State<InventoryPage> {
               }
               return ListView.separated(
                 padding: const EdgeInsets.all(12),
-                itemCount: items.length,
+                itemCount: items.length +1,// sumamos 1 para el botón "Crear Producto"
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (ctx, i) => _ProductTile(items[i]),
+                itemBuilder: (ctx, i) { //=> _ProductTile(items[i]),
+                  if (i == items.length) {
+                    // 👇 último item -> botón crear producto
+                    return ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/crear_producto');
+                      },
+                      child: const Text("Crear Producto"),
+                    );
+                  }
+                  return _ProductTile(items[i]);
+                },
               );
             },
           ),
@@ -98,6 +117,7 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 }
+
 
 class _SegmentButton extends StatelessWidget {
   final String label;
