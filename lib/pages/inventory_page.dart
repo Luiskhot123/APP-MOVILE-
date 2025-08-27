@@ -166,7 +166,8 @@ class _ProductTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Descripción', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                  Text('Descripción',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                   Text(p.nombre, style: const TextStyle(fontSize: 16)),
                   if (p.categoria != null)
                     Text(p.categoria!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -178,7 +179,10 @@ class _ProductTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(priceStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('Stock: $stockStr'),
+                Text(
+                  'Stock: $stockStr ${p.unidad ?? ""}', // 👈 aquí añadimos la unidad
+                  style: const TextStyle(fontSize: 13),
+                ),
               ],
             ),
           ],
@@ -203,4 +207,5 @@ class _ProductTile extends StatelessWidget {
     return out.reversed.join();
   }
 }
+
 
