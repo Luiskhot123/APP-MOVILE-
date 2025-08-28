@@ -6,6 +6,7 @@ class Product {
   final double precio;
   final String? categoria;
   final String? unidad;
+  final int bajoStock;
 
   Product({
     required this.id,
@@ -15,6 +16,7 @@ class Product {
     required this.precio,
     this.categoria,
     this.unidad,
+    required this.bajoStock,
   });
 
   factory Product.fromMap(Map<String, dynamic> json) => Product(
@@ -25,5 +27,6 @@ class Product {
     precio: (json['precio_base_cop'] as num).toDouble(),
     categoria: json['categoria'],   // viene del JOIN
     unidad: json['unidad'],         // viene del JOIN
+    bajoStock: json['bajo_stock'] != null ? json['bajo_stock'] as int : 5, // 👈 default
   );
 }

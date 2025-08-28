@@ -5,10 +5,10 @@ class ProductRepository {
   Future<List<Product>> fetch({
     bool onlyInStock = false,
     bool onlyOutOfStock = false,
-    int? lowStockThreshold,
+    bool onlyLowStock = false,
   }) async {
     final db = await AppDatabase.instance.database;
-    final int threshold = lowStockThreshold ?? 5;
+
     String where = "1=1";
     List<Object?> whereArgs = [];
 
@@ -18,9 +18,8 @@ class ProductRepository {
     if (onlyOutOfStock) {
       where += " AND stock = 0";
     }
-    if (lowStockThreshold != null) {
-      where += " AND stock <= ? AND stock > 0";
-      whereArgs.add(lowStockThreshold);
+    if (onlyLowStock) {
+      where += " AND stock > 0 AND stock <= bajo_stock";
     }
 
     final result = await db.rawQuery('''

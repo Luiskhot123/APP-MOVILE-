@@ -25,7 +25,7 @@ class _InventoryPageState extends State<InventoryPage> {
     return _repo.fetch(
       onlyInStock: isEnStock && _menu == EnStockMenu.todos,
       onlyOutOfStock: onlyOut,
-      lowStockThreshold: isEnStock && _menu == EnStockMenu.bajoStock ? _lowStockThreshold : null,
+      onlyLowStock: isEnStock && _menu == EnStockMenu.bajoStock,
     );
   }
 
@@ -101,8 +101,19 @@ class _InventoryPageState extends State<InventoryPage> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/crear_producto');
+                      onPressed: () async {
+                        final result = await Navigator.pushNamed(context, '/crear_producto');
+                        if (result == true) {
+                          setState(() {}); // 👈 esto forza a reconstruir y recargar los productos
+
+                          // 👇 Mostrar SnackBar
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("✅ Producto creado con éxito"),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       },
                       child: const Text("Crear Producto"),
                     );

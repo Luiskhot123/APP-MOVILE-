@@ -14,8 +14,11 @@ class _CrearProductoPageState extends State<CrearProductoPage> {
   final Map<String, dynamic> _formData = {};
   String? codigoBarras;
 
+  // Dropdown opciones
+  int? categoriaSeleccionada;
+  int? unidadSeleccionada;
+
   Future<void> _abrirScanner() async {
-    // Navegamos a una pantalla con el escáner
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const _ScannerPage()),
@@ -32,6 +35,14 @@ class _CrearProductoPageState extends State<CrearProductoPage> {
   Future<void> _guardar() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+
+      // Guardar seleccionados de dropdown
+      _formData["id_categoria"] = categoriaSeleccionada;
+      _formData["id_unidad"] = unidadSeleccionada;
+
+      // Activo siempre en 1
+      _formData["activo"] = 1;
+
       await ProductRepository().insertProduct(_formData);
       Navigator.pop(context, true); // volvemos a inventario
     }
@@ -49,7 +60,23 @@ class _CrearProductoPageState extends State<CrearProductoPage> {
             children: [
               _buildField("nombre", "Nombre", TextInputType.text),
               _buildField("descripcion", "Descripción", TextInputType.text),
-              _buildField("id_categoria", "ID Categoría", TextInputType.number),
+
+              // 👇 Categoría con dropdown
+              DropdownButtonFormField<int>(
+                decoration: const InputDecoration(labelText: "Categoría"),
+                value: categoriaSeleccionada,
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text("Abarrotes")),
+                  DropdownMenuItem(value: 2, child: Text("Lácteos")),
+                  DropdownMenuItem(value: 3, child: Text("Bebidas")),
+                  DropdownMenuItem(value: 4, child: Text("Aseo")),
+                ],
+                onChanged: (val) {
+                  setState(() => categoriaSeleccionada = val);
+                },
+                validator: (val) => val == null ? "Seleccione una categoría" : null,
+              ),
+
               _buildField("sku", "SKU", TextInputType.text),
 
               Row(
@@ -68,14 +95,31 @@ class _CrearProductoPageState extends State<CrearProductoPage> {
                 ],
               ),
 
-              _buildField("id_unidad", "ID Unidad", TextInputType.number),
+              // 👇 Unidad de medida con dropdown
+              DropdownButtonFormField<int>(
+                decoration: const InputDecoration(labelText: "Unidad de medida"),
+                value: unidadSeleccionada,
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text("Unidad")),
+                  DropdownMenuItem(value: 2, child: Text("Kilogramo")),
+                  DropdownMenuItem(value: 3, child: Text("Litro")),
+                  DropdownMenuItem(value: 4, child: Text("Paquete")),
+                ],
+                onChanged: (val) {
+                  setState(() => unidadSeleccionada = val);
+                },
+                validator: (val) => val == null ? "Seleccione una unidad" : null,
+              ),
+
               _buildField("costo_compra_cop", "Costo compra", TextInputType.number),
               _buildField("precio_base_cop", "Precio base", TextInputType.number),
               _buildField("iva_pct", "IVA %", TextInputType.number),
               _buildField("retencion_fuente_pct", "Retención %", TextInputType.number),
               _buildField("otros_impuestos_pct", "Otros impuestos %", TextInputType.number),
               _buildField("stock", "Stock", TextInputType.number),
-              _buildField("activo", "Activo (1/0)", TextInputType.number),
+
+              // 👇 Nuevo campo Bajo stock
+              _buildField("bajo_stock", "Bajo stock a partir de...", TextInputType.number),
 
               const SizedBox(height: 20),
               ElevatedButton(
