@@ -33,6 +33,9 @@ class _InventoryPageState extends State<InventoryPage> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Línea que separa el header (Inventario / Facturas) de los botones
+        const Divider(height: 1, thickness: 1),
+
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -138,7 +141,7 @@ class _SegmentButton extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-  });
+});
 
   @override
   Widget build(BuildContext context) {

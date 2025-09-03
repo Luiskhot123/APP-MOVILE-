@@ -19,6 +19,9 @@ class _FacturasPageState extends State<FacturasPage> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Línea que separa el header (Inventario / Facturas) de los botones
+        const Divider(height: 1, thickness: 1),
+
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -49,25 +52,114 @@ class _FacturasPageState extends State<FacturasPage> {
               }
               final facturas = snap.data ?? [];
               if (facturas.isEmpty) {
-                return const Center(child: Text('Sin facturas'));
+                // Si quieres mostrar el botón aun cuando no hay facturas, cambia este return
+                return Center(child: Text('Sin facturas'));
               }
 
               return ListView.separated(
                 padding: const EdgeInsets.all(12),
-                itemCount: facturas.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemCount: facturas.length + 1, // +1 para el botón final
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (ctx, i) {
+                  if (i == facturas.length) {
+                    // Botón final (Cargar Factura / Vender)
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                        ),
+                        onPressed: () {
+                          // Por ahora sin funcionalidad
+                        },
+                        child: Text(
+                          _tab == FacturaTab.compras ? "Cargar Factura" : "Vender",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    );
+                  }
+
                   final f = facturas[i];
-                  return ListTile(
-                    leading: Icon(
-                      _tab == FacturaTab.compras ? Icons.shopping_cart : Icons.sell,
-                      color: _tab == FacturaTab.compras ? Colors.green : Colors.orange,
+
+                  // valores desde la vista: total_base_cop, total_iva_cop, total_factura_cop
+                  final subtotal = f['total_base_cop'] ?? 0;
+                  final iva = f['total_iva_cop'] ?? 0;
+                  final total = f['total_factura_cop'] ?? 0;
+
+                  return Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Icono lateral
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: _tab == FacturaTab.compras ? Colors.green.shade50 : Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              _tab == FacturaTab.compras ? Icons.shopping_cart : Icons.label,
+                              color: _tab == FacturaTab.compras ? Colors.green : Colors.orange,
+                              size: 28,
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // Info central
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Factura #${f['codigo_factura'] ?? ''}",
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 6),
+                                Text("Fecha: ${f['fecha_emision'] ?? ''}", style: const TextStyle(fontSize: 13)),
+                                const SizedBox(height: 6),
+                                Text("Subtotal: ${_formatCOP(subtotal)}", style: const TextStyle(fontSize: 13)),
+                                Text("IVA: ${_formatCOP(iva)}", style: const TextStyle(fontSize: 13)),
+                                const SizedBox(height: 6),
+                                Text("Estado: ${f['estado'] ?? ''}", style: TextStyle(
+                                  fontSize: 13,
+                                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                                )),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // Total a la derecha
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _formatCOP(total),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    title: Text("Factura #${f['codigo_factura']}"),
-                    subtitle: Text(
-                      "Fecha: ${f['fecha_emision']}\nEstado: ${f['estado']}",
-                    ),
-                    isThreeLine: true,
                   );
                 },
               );
@@ -77,13 +169,40 @@ class _FacturasPageState extends State<FacturasPage> {
       ],
     );
   }
+  String _formatCOP(dynamic value) {
+    // acepta int, double, String, null
+    int n = 0;
+    if (value == null) n = 0;
+    else if (value is int) n = value;
+    else if (value is double) n = value.toInt();
+    else {
+      // intentar parsear
+      n = int.tryParse(value.toString()) ?? 0;
+    }
+    return '\$${_thousands(n)} COP';
+  }
+
+  String _thousands(int n) {
+    final s = n.abs().toString();
+    final out = <String>[];
+    var count = 0;
+    for (int i = s.length - 1; i >= 0; i--) {
+      out.add(s[i]);
+      count++;
+      if (count == 3 && i != 0) {
+        out.add('.');
+        count = 0;
+      }
+    }
+    final sign = n < 0 ? '-' : '';
+    return sign + out.reversed.join();
+  }
 }
 
 class _SegmentButton extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-
   const _SegmentButton({
     required this.label,
     required this.selected,
@@ -92,19 +211,21 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? Colors.blue : Colors.transparent,
-          border: Border.all(color: Colors.grey),
-          borderRadius: BorderRadius.circular(20),
+          color: selected ? color.withOpacity(0.15) : Colors.transparent,
+          border: Border.all(color: selected ? color : Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : Colors.black,
+            color: selected ? color : Colors.black87,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
