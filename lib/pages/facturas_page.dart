@@ -72,8 +72,18 @@ class _FacturasPageState extends State<FacturasPage> {
                             borderRadius: BorderRadius.circular(28),
                           ),
                         ),
-                        onPressed: () {
-                          // Por ahora sin funcionalidad
+                        onPressed: () async {
+                          if (_tab == FacturaTab.compras) {
+                            final result = await Navigator.pushNamed(context, '/cargar_factura');
+                            if (result == true) {
+                              setState(() {}); // 👈 refresca la lista al volver
+                            }
+                          } else {
+                            // Placeholder para ventas
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Funcionalidad de ventas en construcción")),
+                            );
+                          }
                         },
                         child: Text(
                           _tab == FacturaTab.compras ? "Cargar Factura" : "Vender",
