@@ -268,8 +268,8 @@ class _CargarFacturaPageState extends State<CargarFacturaPage> {
 
                       if (nuevoProveedor != null) {
                         setState(() {
-                          _proveedorId = nuevoProveedor['id_proveedor'];
-                          _proveedor = nuevoProveedor['nombre']; // Actualiza el texto del Autocomplete
+                          _proveedorId = null;
+                          _proveedor = ''; // vaciamos el campo
                         });
                       }
                     } else {
