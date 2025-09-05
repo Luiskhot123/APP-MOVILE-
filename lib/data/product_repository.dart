@@ -23,7 +23,7 @@ class ProductRepository {
     }
 
     final result = await db.rawQuery('''
-      SELECT p.id_producto, p.nombre, p.descripcion, p.stock, p.precio_base_cop,
+      SELECT p.id_producto, p.nombre, p.descripcion, p.stock, p.precio_base_cop, p.iva_pct,
              c.nombre AS categoria, u.nombre AS unidad
       FROM productos p
       LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
@@ -53,6 +53,23 @@ class ProductRepository {
         "otros_impuestos_pct"
       ],
     );
+  }
+  Future<Product?> findByBarcode(String codigo) async {
+    final db = await AppDatabase.instance.database;
+
+    final result = await db.rawQuery('''
+      SELECT p.id_producto, p.nombre, p.descripcion, p.stock, p.precio_base_cop, p.iva_pct,
+             c.nombre AS categoria, u.nombre AS unidad
+      FROM productos p
+      LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+      LEFT JOIN unidades_medida u ON p.id_unidad = u.id_unidad
+      WHERE p.codigo_barras = ?
+      LIMIT 1
+    ''', [codigo]);
+
+    if (result.isEmpty) return null;
+
+    return Product.fromMap(result.first);
   }
 
 }

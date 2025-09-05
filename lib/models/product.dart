@@ -4,6 +4,7 @@ class Product {
   final String? descripcion;
   final int stock;
   final double precio;
+  final double ivaPct;
   final String? categoria;
   final String? unidad;
   final int bajoStock;
@@ -14,6 +15,7 @@ class Product {
     this.descripcion,
     required this.stock,
     required this.precio,
+    required this.ivaPct,
     this.categoria,
     this.unidad,
     required this.bajoStock,
@@ -25,6 +27,7 @@ class Product {
     descripcion: json['descripcion'],
     stock: json['stock'] ?? 0,
     precio: (json['precio_base_cop'] as num).toDouble(),
+    ivaPct: (json['iva_pct'] ?? 0).toDouble(), // 👈 mapea el iva
     categoria: json['categoria'],   // viene del JOIN
     unidad: json['unidad'],         // viene del JOIN
     bajoStock: json['bajo_stock'] != null ? json['bajo_stock'] as int : 5, // 👈 default

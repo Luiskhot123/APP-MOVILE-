@@ -83,9 +83,11 @@ class _FacturasPageState extends State<FacturasPage> {
                                   setState(() {}); // refresca la lista al volver
                                 }
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Funcionalidad de ventas en construcción")),
-                                );
+                                // 👉 Aquí llamamos la nueva pantalla de venta
+                                final result = await Navigator.pushNamed(context, '/venta');
+                                if (result == true) {
+                                  setState(() {}); // refresca
+                                }
                               }
                             },
                             child: Text(

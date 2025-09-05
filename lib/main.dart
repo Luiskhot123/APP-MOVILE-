@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:inventario_app/pages/vender_page.dart';
 import 'pages/inventory_page.dart';
 import 'pages/crear_producto_page.dart';
 import 'pages/facturas_page.dart';
@@ -25,6 +26,7 @@ class MyApp extends StatelessWidget {
         '/crear_producto': (context) => const CrearProductoPage(),
         '/cargar_factura': (context) => const CargarFacturaPage(),
         '/facturas': (context) => const FacturasPage(),
+        '/venta': (_) => const VenderPage(), // nueva pantalla
       },
     );
   }
