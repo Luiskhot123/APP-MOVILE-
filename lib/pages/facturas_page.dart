@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/facturas_repository.dart';
 import '../data/product_repository.dart';
+import 'crear_proveedor_page.dart';
 
 enum FacturaTab { compras, ventas }
 
@@ -62,36 +63,64 @@ class _FacturasPageState extends State<FacturasPage> {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (ctx, i) {
                   if (i == facturas.length) {
-                    // Botón final (Cargar Factura / Vender)
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 56),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
+                    // Botones finales
+                    return Column(
+                      children: [
+                        // Botón Cargar Factura / Vender
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                            onPressed: () async {
+                              if (_tab == FacturaTab.compras) {
+                                final result = await Navigator.pushNamed(context, '/cargar_factura');
+                                if (result == true) {
+                                  setState(() {}); // refresca la lista al volver
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Funcionalidad de ventas en construcción")),
+                                );
+                              }
+                            },
+                            child: Text(
+                              _tab == FacturaTab.compras ? "Cargar Factura" : "Vender",
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
                           ),
                         ),
-                        onPressed: () async {
-                          if (_tab == FacturaTab.compras) {
-                            final result = await Navigator.pushNamed(context, '/cargar_factura');
-                            if (result == true) {
-                              setState(() {}); // 👈 refresca la lista al volver
-                            }
-                          } else {
-                            // Placeholder para ventas
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Funcionalidad de ventas en construcción")),
-                            );
-                          }
-                        },
-                        child: Text(
-                          _tab == FacturaTab.compras ? "Cargar Factura" : "Vender",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+
+                        // Botón Crear Proveedor debajo
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CrearProveedorPage()),
+                              );
+                            },
+                            child: const Text(
+                              "Crear Proveedor",
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     );
                   }
+
 
                   final f = facturas[i];
 
