@@ -41,4 +41,18 @@ class ProductRepository {
     await db.insert("productos", data);
   }
 
+  Future<List<Map<String, dynamic>>> fetchProductosLite() async {
+    final db = await AppDatabase.instance.database;
+    return await db.query(
+      "productos",
+      columns: [
+        "id_producto",
+        "nombre",
+        "iva_pct",
+        "retencion_fuente_pct",
+        "otros_impuestos_pct"
+      ],
+    );
+  }
+
 }

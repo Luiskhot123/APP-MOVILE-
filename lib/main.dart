@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'pages/inventory_page.dart';
 import 'pages/crear_producto_page.dart';
 import 'pages/facturas_page.dart';
+import 'pages/cargar_factura_page.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -21,6 +23,7 @@ class MyApp extends StatelessWidget {
       home: const Home(),
       routes: {
         '/crear_producto': (context) => const CrearProductoPage(),
+        '/cargar_factura': (context) => const CargarFacturaPage(),
         '/facturas': (context) => const FacturasPage(),
       },
     );

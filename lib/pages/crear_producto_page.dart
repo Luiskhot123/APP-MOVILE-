@@ -13,15 +13,31 @@ class _CrearProductoPageState extends State<CrearProductoPage> {
   final _formKey = GlobalKey<FormState>();
   final Map<String, dynamic> _formData = {};
   String? codigoBarras;
+  TextEditingController? _nombreController;
 
   // Dropdown opciones
   int? categoriaSeleccionada;
   int? unidadSeleccionada;
 
+  @override
+  void initState() {
+    super.initState();
+    _nombreController = TextEditingController(); // inicial vacío
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null && args.containsKey("nombreInicial")) {
+      _nombreController!.text = args["nombreInicial"];
+    }
+  }
+
   Future<void> _abrirScanner() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const _ScannerPage()),
+      MaterialPageRoute(builder: (_) => _ScannerPage()), // 👈 sin const
     );
 
     if (result != null && result is String) {
@@ -135,6 +151,7 @@ class _CrearProductoPageState extends State<CrearProductoPage> {
 
   Widget _buildField(String key, String label, TextInputType type) {
     return TextFormField(
+      controller: key == "nombre" ? _nombreController : null,
       decoration: InputDecoration(labelText: label),
       keyboardType: type,
       validator: (val) => val == null || val.isEmpty ? "Requerido" : null,
@@ -144,7 +161,7 @@ class _CrearProductoPageState extends State<CrearProductoPage> {
 }
 
 class _ScannerPage extends StatelessWidget {
-  const _ScannerPage({super.key});
+  _ScannerPage({super.key}); // 👈 sin const
 
   @override
   Widget build(BuildContext context) {
