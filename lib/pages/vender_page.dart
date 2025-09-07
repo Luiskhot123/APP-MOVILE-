@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../data/cliente_repository.dart';
@@ -8,7 +9,11 @@ import '../models/cliente.dart';
 import '../models/product.dart';
 import '../models/venta_item.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
+import '../services/email_service.dart';
 import 'crear_cliente_page.dart';
 
 
@@ -384,21 +389,20 @@ class _VenderPageState extends State<VenderPage> {
                             ),
                           );
 
-                          if (medioPago == null) return; // si cancela, no hacemos nada
+                          if (medioPago == null) return;
 
-                          // Paso 2: preparar datos de la factura
+                          // Paso 2: preparar datos
                           final repo = FacturasRepository();
                           final facturaData = {
                             "tipo": "FACTURA",
                             "tipo2": "VENTA",
                             "estado": "ACTIVA",
-                            'fecha_emision': DateTime.now().toIso8601String().split('T').first,
-                            "id_cliente": _clienteSeleccionado?.idCliente, // null si no hay cliente
+                            "fecha_emision": DateTime.now().toIso8601String().split('T').first,
+                            "id_cliente": _clienteSeleccionado?.idCliente,
                             "id_medio_pago": medioPago,
-                            "id_proveedor": null, // en ventas no aplica proveedor
+                            "id_proveedor": null,
                           };
 
-                          // Paso 3: preparar detalles
                           final detalles = _carrito.values.map((item) => {
                             "producto_id": item.product.id,
                             "cantidad": item.qty,
@@ -408,10 +412,41 @@ class _VenderPageState extends State<VenderPage> {
                             "otros_impuestos_pct": 0.0,
                           }).toList();
 
-                          // Paso 4: guardar en DB
                           try {
+                            // Paso 3: guardar factura
                             final idFactura = await repo.insertarFactura(facturaData, detalles);
                             print("✅ Factura creada con id: $idFactura");
+
+                            // Paso 4: generar recibo PDF
+                            final pdfData = await _generarReciboPOS(
+                              idFactura.toString(),
+                              DateTime.now(),
+                              medioPago,
+                              _carrito,
+                              _totalCOP,
+                              cliente: _clienteSeleccionado,
+                            );
+
+                            // Enviar al correo del cliente (si tiene)
+                            if (_clienteSeleccionado?.correo != null && _clienteSeleccionado!.correo!.isNotEmpty) {
+                              final ok = await EmailService.enviarFactura(
+                                destinatario: _clienteSeleccionado!.correo!,
+                                nombreDestinatario: _clienteSeleccionado!.nombreCompleto ?? _clienteSeleccionado!.razonSocial,
+                                pdfBytes: pdfData,
+                                asunto: "Factura de tu compra en Fashion Line",
+                              );
+
+                              if (ok) {
+                                print("✅ Correo enviado a ${_clienteSeleccionado!.correo}");
+                              } else {
+                                print("❌ Falló el envío del correo");
+                              }
+                            }
+
+                            // Paso 5: mostrar/print recibo
+                            await Printing.layoutPdf(
+                              onLayout: (format) async => pdfData,
+                            );
 
                             if (!mounted) return;
 
@@ -419,7 +454,9 @@ class _VenderPageState extends State<VenderPage> {
                               const SnackBar(content: Text("Factura registrada con éxito ✅")),
                             );
 
-                            Navigator.pop(context, true); // volver a facturas_page
+                            // Paso 6: volver a facturas_page y refrescar
+                            Navigator.pop(context, true);
+
                           } catch (e) {
                             print("❌ Error guardando factura: $e");
                             if (!mounted) return;
@@ -428,6 +465,7 @@ class _VenderPageState extends State<VenderPage> {
                             );
                           }
                         },
+
                         child: const Text('Vender'),
                       ),
                     ),
@@ -441,7 +479,62 @@ class _VenderPageState extends State<VenderPage> {
       ),
     );
   }
+  // Método para generar el PDF
+  Future<Uint8List> _generarReciboPOS(
+      String codigoFactura,
+      DateTime fecha,
+      int medioPago,
+      Map<String, VentaItem> carrito,
+      int totalCOP,
+      {Cliente? cliente}
+      ) async {
+    final pdf = pw.Document();
 
+    final medioPagoTxt = switch (medioPago) {
+      1 => "EFECTIVO",
+      2 => "TARJETA",
+      3 => "TRANSFERENCIA",
+      _ => "DESCONOCIDO"
+    };
+
+    pdf.addPage(
+      pw.Page(
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text("RECIBO DE VENTA", style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 8),
+              pw.Text("Factura: $codigoFactura"),
+              pw.Text("Fecha: ${fecha.toIso8601String().split('T').first}"),
+              pw.Text("Medio de pago: $medioPagoTxt"),
+              if (cliente != null) ...[
+                pw.Text("Cliente: ${cliente.nombreCompleto ?? cliente.razonSocial}"),
+                pw.Text("Documento: ${cliente.numeroDocumento}"),
+              ],
+              pw.SizedBox(height: 12),
+              pw.Table.fromTextArray(
+                headers: ["Producto", "Cant.", "Precio", "Subtotal"],
+                data: carrito.values.map((item) {
+                  return [
+                    item.product.nombre,
+                    "${item.qty}",
+                    "\$${item.product.precio.toInt()}",
+                    "\$${item.subtotal.toInt()}",
+                  ];
+                }).toList(),
+              ),
+              pw.SizedBox(height: 12),
+              pw.Text("TOTAL: \$${totalCOP.toInt()}",
+                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
   String _formatCOP(int n) => '\$${_thousands(n)} COP';
   String _thousands(int n) {
     final s = n.abs().toString();

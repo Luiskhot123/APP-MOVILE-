@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:inventario_app/pages/crear_cliente_page.dart';
 import 'package:inventario_app/pages/vender_page.dart';
 import 'pages/inventory_page.dart';
@@ -7,7 +8,8 @@ import 'pages/facturas_page.dart';
 import 'pages/cargar_factura_page.dart';
 
 
-void main() {
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 
