@@ -1,10 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../data/cliente_repository.dart';
+import '../data/facturas_repository.dart';
 import '../data/product_repository.dart';
+import '../models/cliente.dart';
 import '../models/product.dart';
 import '../models/venta_item.dart';
 import 'package:audioplayers/audioplayers.dart';
+
+import 'crear_cliente_page.dart';
 
 
 class VenderPage extends StatefulWidget {
@@ -19,6 +24,8 @@ class _VenderPageState extends State<VenderPage> {
   final _repo = ProductRepository();
   final Map<String, VentaItem> _carrito = {}; // key: codigo_barras
 
+  Cliente? _clienteSeleccionado; // 👈 aquí guardamos el cliente para facturarle
+
   String? _lastCode;
   DateTime? _lastScanAt;
 
@@ -29,7 +36,7 @@ class _VenderPageState extends State<VenderPage> {
   }
 
   Future<void> _preguntarFacturaElectronica() async {
-    await showDialog<bool>(
+    final deseaFactura = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
@@ -48,8 +55,157 @@ class _VenderPageState extends State<VenderPage> {
         );
       },
     );
-    // Por ahora, independientemente de la elección, seguimos en esta pantalla.
+
+    if (deseaFactura == true) {
+      final cliente = await mostrarModalValidacionCliente(context);
+      if (cliente != null) {
+        setState(() {
+          _clienteSeleccionado = cliente;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cliente seleccionado: ${cliente.nombreCompleto}')),
+        );
+      } else {
+        // Si cancela en validación, volvemos a preguntar factura electrónica
+        await _preguntarFacturaElectronica();
+      }
+    } else {
+      // Si elige "No", seguimos en la pantalla sin cliente
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Venta sin cliente asociado')),
+      );
+    }
   }
+
+
+  Future<Cliente?> mostrarModalValidacionCliente(BuildContext context) {
+    final repo = ClienteRepository();
+    final formKey = GlobalKey<FormState>();
+    final numeroCtrl = TextEditingController();
+    int tipoSeleccionado = 1; // default CC
+    String? errorDoc;
+
+    final tipos = {
+      1: 'Cédula de ciudadanía',
+      2: 'NIT',
+      3: 'Cédula de extranjería',
+    };
+
+    return showDialog<Cliente>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('Validar cliente'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      value: tipoSeleccionado,
+                      items: tipos.entries
+                          .map((e) => DropdownMenuItem<int>(
+                        value: e.key,
+                        child: Text(e.value),
+                      ))
+                          .toList(),
+                      onChanged: (v) => setState(() => tipoSeleccionado = v ?? 1),
+                      decoration: const InputDecoration(labelText: 'Tipo documento'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: numeroCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Número de identificación',
+                        errorText: errorDoc,
+                      ),
+                      validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Ingrese número' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () async {
+                          final creado = await showDialog(
+                            context: context,
+                            builder: (_) => const CrearClientePage(),
+                          );
+                          if (creado == true) {
+                            // si se crea, dejamos que el usuario intente de nuevo
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Cliente creado, vuelva a validar')),
+                            );
+                          }
+                        },
+                        child: const Text(
+                          "Crear cliente",
+                          style: TextStyle(decoration: TextDecoration.underline),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx, null); // volver al modal inicial
+                  },
+                  child: const Text("Cancelar"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    final cliente = await repo.findByTipoYDocumento(
+                      tipoSeleccionado,
+                      numeroCtrl.text.trim(),
+                    );
+                    if (cliente == null) {
+                      setState(() {
+                        errorDoc = "Cliente inexistente";
+                      });
+                    } else {
+                      Navigator.pop(ctx, cliente); // devolver cliente válido
+                    }
+                  },
+                  child: const Text("Continuar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<int?> _seleccionarMedioPago(BuildContext context) {
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Seleccione medio de pago"),
+        content: const Text("¿Cómo pagará el cliente?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 1),
+            child: const Text("EFECTIVO"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 2),
+            child: const Text("TARJETA"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 3),
+            child: const Text("TRANSFERENCIA"),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Future<void> _onScan(String code) async {
     final now = DateTime.now();
@@ -203,13 +359,79 @@ class _VenderPageState extends State<VenderPage> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
-                          // TODO: guardar venta en DB, emitir factura, etc.
-                          // Por ahora sólo volvemos:
-                          Navigator.pop(context, true);
+                          // Paso 1: preguntar medio de pago
+                          final medioPago = await showDialog<int>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text("Seleccione medio de pago"),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(ctx, 1),
+                                    child: const Text("EFECTIVO"),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(ctx, 2),
+                                    child: const Text("TARJETA"),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(ctx, 3),
+                                    child: const Text("TRANSFERENCIA"),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          if (medioPago == null) return; // si cancela, no hacemos nada
+
+                          // Paso 2: preparar datos de la factura
+                          final repo = FacturasRepository();
+                          final facturaData = {
+                            "tipo": "FACTURA",
+                            "tipo2": "VENTA",
+                            "estado": "ACTIVA",
+                            'fecha_emision': DateTime.now().toIso8601String().split('T').first,
+                            "id_cliente": _clienteSeleccionado?.idCliente, // null si no hay cliente
+                            "id_medio_pago": medioPago,
+                            "id_proveedor": null, // en ventas no aplica proveedor
+                          };
+
+                          // Paso 3: preparar detalles
+                          final detalles = _carrito.values.map((item) => {
+                            "producto_id": item.product.id,
+                            "cantidad": item.qty,
+                            "precio_unit_base_cop": item.product.precio.toInt(),
+                            "iva_pct": item.product.ivaPct,
+                            "retencion_fuente_pct": 0.0,
+                            "otros_impuestos_pct": 0.0,
+                          }).toList();
+
+                          // Paso 4: guardar en DB
+                          try {
+                            final idFactura = await repo.insertarFactura(facturaData, detalles);
+                            print("✅ Factura creada con id: $idFactura");
+
+                            if (!mounted) return;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Factura registrada con éxito ✅")),
+                            );
+
+                            Navigator.pop(context, true); // volver a facturas_page
+                          } catch (e) {
+                            print("❌ Error guardando factura: $e");
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error guardando factura: $e")),
+                            );
+                          }
                         },
                         child: const Text('Vender'),
                       ),
                     ),
+
                   ],
                 ),
               ],

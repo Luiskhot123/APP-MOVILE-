@@ -16,16 +16,35 @@ class FacturasRepository {
     print("FACTURAS ($tipo2): $result");
     return result;
   }
-  Future<int> insertarFactura(Map<String, dynamic> factura, List<Map<String, dynamic>> detalles) async {
+  Future<int> insertarFactura(
+      Map<String, dynamic> factura,
+      List<Map<String, dynamic>> detalles,
+      ) async {
     final db = await AppDatabase.instance.database;
 
     return await db.transaction((txn) async {
-      // 1. Insertar factura
-      final facturaId = await txn.insert("facturas", factura);
+      // 1. Generar un código temporal único para cumplir con NOT NULL
+      final tempCodigo = "TMP-${DateTime.now().millisecondsSinceEpoch}";
 
-      // 2. Insertar detalles
+      final facturaData = Map<String, dynamic>.from(factura);
+      facturaData["codigo_factura"] = tempCodigo;
+
+      // 2. Insertar factura
+      final facturaId = await txn.insert("facturas", facturaData);
+
+      // 3. Generar código definitivo con ceros a la izquierda (mínimo 4 dígitos)
+      final codigoFactura = "FAC-${facturaId.toString().padLeft(4, '0')}";
+
+      await txn.update(
+        "facturas",
+        {"codigo_factura": codigoFactura},
+        where: "id_factura = ?",
+        whereArgs: [facturaId],
+      );
+
+      // 4. Insertar detalles de factura
       for (final d in detalles) {
-        final detalle = {
+        await txn.insert("detalle_factura", {
           "id_factura": facturaId,
           "id_producto": d["producto_id"],
           "cantidad": d["cantidad"],
@@ -33,18 +52,17 @@ class FacturasRepository {
           "iva_pct": d["iva_pct"] ?? 0.0,
           "retencion_fuente_pct": d["retencion_fuente_pct"] ?? 0.0,
           "otros_impuestos_pct": d["otros_impuestos_pct"] ?? 0.0,
-        };
-        await txn.insert("detalle_factura", detalle);
+        });
 
-        // 3. Actualizar stock
-        if (factura["tipo2"] == "COMPRA") {
-          await txn.rawUpdate(
-            "UPDATE productos SET stock = stock + ? WHERE id_producto = ?",
-            [d["cantidad"], d["producto_id"]],
-          );
-        } else if (factura["tipo2"] == "VENTA") {
+        // 5. Actualizar stock
+        if (factura["tipo2"] == "VENTA") {
           await txn.rawUpdate(
             "UPDATE productos SET stock = stock - ? WHERE id_producto = ?",
+            [d["cantidad"], d["producto_id"]],
+          );
+        } else if (factura["tipo2"] == "COMPRA") {
+          await txn.rawUpdate(
+            "UPDATE productos SET stock = stock + ? WHERE id_producto = ?",
             [d["cantidad"], d["producto_id"]],
           );
         }
@@ -53,6 +71,10 @@ class FacturasRepository {
       return facturaId;
     });
   }
+
+
+
+
   Future<bool> existeCodigoFactura(String codigo) async {
     final db = await AppDatabase.instance.database;
     final result = await db.query(

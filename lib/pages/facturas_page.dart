@@ -97,7 +97,6 @@ class _FacturasPageState extends State<FacturasPage> {
                           ),
                         ),
 
-                        // Botón Crear Proveedor debajo
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: ElevatedButton(
@@ -108,17 +107,27 @@ class _FacturasPageState extends State<FacturasPage> {
                               ),
                             ),
                             onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const CrearProveedorPage()),
-                              );
+                              if (_tab == FacturaTab.compras) {
+                                // 👉 Si estoy en Compras → Crear Proveedor
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const CrearProveedorPage()),
+                                );
+                              } else if (_tab == FacturaTab.ventas) {
+                                // 👉 Si estoy en Ventas → Crear Cliente
+                                final result = await Navigator.pushNamed(context, '/crear-cliente');
+                                if (result == true) {
+                                  setState(() {}); // refresca si luego muestras lista de clientes
+                                }
+                              }
                             },
-                            child: const Text(
-                              "Crear Proveedor",
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            child: Text(
+                              _tab == FacturaTab.compras ? "Crear Proveedor" : "Crear Cliente",
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
+
                       ],
                     );
                   }
