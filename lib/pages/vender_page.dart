@@ -732,4 +732,4 @@ class _TotalBar extends StatelessWidget {
       ),
     );
   }
-}
+}//comentario para commit
