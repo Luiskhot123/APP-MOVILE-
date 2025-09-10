@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'pages/login_page.dart';
+import 'pages/dashboard_page.dart'; // 👈 nuevo dashboard
 import 'pages/inventory_page.dart';
 import 'pages/facturas_page.dart';
 import 'pages/crear_producto_page.dart';
@@ -10,8 +11,6 @@ import 'pages/vender_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 👇 Cargar variables desde .env
   await dotenv.load(fileName: "assets/.env");
 
   runApp(const MyApp());
@@ -30,15 +29,16 @@ class MyApp extends StatelessWidget {
       ),
       home: const LoginPage(),
       routes: {
-        '/crear_producto': (context) => const CrearProductoPage(),
-        '/cargar_factura': (context) => const CargarFacturaPage(),
-        '/facturas': (context) => const FacturasPage(),
+        '/crear_producto': (_) => const CrearProductoPage(),
+        '/cargar_factura': (_) => const CargarFacturaPage(),
+        '/facturas': (_) => const FacturasPage(),
         '/venta': (_) => const VenderPage(),
         '/crear-cliente': (_) => const CrearClientePage(),
       },
     );
   }
 }
+
 class Home extends StatefulWidget {
   const Home({super.key});
 

@@ -15,4 +15,13 @@ class UsuarioRepository {
     );
     return result.isNotEmpty ? result.first : null;
   }
+  Future<List<Map<String, dynamic>>> fetchUsuariosPorEmpresa(int idEmpresa) async {
+    final db = await AppDatabase.instance.database;
+    return await db.query(
+      "usuarios",
+      where: "id_empresa = ?",
+      whereArgs: [idEmpresa],
+      orderBy: "nombre_completo ASC",
+    );
+  }
 }

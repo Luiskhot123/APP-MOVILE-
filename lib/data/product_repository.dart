@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart';
+
 import 'app_database.dart';
 import '../models/product.dart';
 
@@ -70,6 +72,30 @@ class ProductRepository {
     if (result.isEmpty) return null;
 
     return Product.fromMap(result.first);
+  }
+
+  // 🔹 NUEVO: estadísticas para Dashboard
+  Future<Map<String, int>> obtenerEstadisticas() async {
+    final db = await AppDatabase.instance.database;
+
+    final registrados = Sqflite.firstIntValue(
+        await db.rawQuery("SELECT COUNT(*) FROM productos")) ?? 0;
+
+    final enInventario = Sqflite.firstIntValue(
+        await db.rawQuery("SELECT COUNT(*) FROM productos WHERE stock > 0")) ?? 0;
+
+    final bajoStock = Sqflite.firstIntValue(
+        await db.rawQuery("SELECT COUNT(*) FROM productos WHERE stock > 0 AND stock <= bajo_stock")) ?? 0;
+
+    final agotados = Sqflite.firstIntValue(
+        await db.rawQuery("SELECT COUNT(*) FROM productos WHERE stock = 0")) ?? 0;
+
+    return {
+      "Registrados": registrados,
+      "En inventario": enInventario,
+      "Bajo stock": bajoStock,
+      "Agotados": agotados,
+    };
   }
 
 }

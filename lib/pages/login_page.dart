@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/empresa_repository.dart';
 import '../data/usuario_repository.dart';
-import '../main.dart'; // donde tienes la clase Home
+import '../main.dart';
+import 'dashboard_page.dart'; // donde tienes la clase Home
 
 
 class LoginPage extends StatefulWidget {
@@ -75,8 +76,17 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const Home()),
+        MaterialPageRoute(
+          builder: (context) => DashboardPage(
+            idEmpresa: empresa['id_empresa'] as int, // 👈 aquí pasamos el id correcto
+          ),
+        ),
       );
+
+      //Navigator.pushReplacement(
+      //  context,
+      //  MaterialPageRoute(builder: (_) => const Home()),
+      //);
       // ✅ acceso
     } else {
       setState(() {

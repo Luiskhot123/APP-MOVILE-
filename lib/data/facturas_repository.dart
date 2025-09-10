@@ -1,3 +1,5 @@
+import 'package:sqflite/sqflite.dart';
+
 import 'app_database.dart';
 
 class FacturasRepository {
@@ -116,6 +118,29 @@ class FacturasRepository {
       ''', [det["cantidad"], det["producto_id"]]);
       }
     });
+  }
+
+  Future<Map<String, int>> obtenerEstadisticas(String tipo) async {
+    // tipo = "compras" o "ventas"
+    final db = await AppDatabase.instance.database;
+
+    final hoy = Sqflite.firstIntValue(
+      await db.rawQuery("SELECT COUNT(*) FROM facturas WHERE tipo = ? AND DATE(fecha) = DATE('now')", [tipo]),
+    ) ?? 0;
+
+    final semana = Sqflite.firstIntValue(
+      await db.rawQuery("SELECT COUNT(*) FROM facturas WHERE tipo = ? AND strftime('%W', fecha) = strftime('%W', 'now')", [tipo]),
+    ) ?? 0;
+
+    final mes = Sqflite.firstIntValue(
+      await db.rawQuery("SELECT COUNT(*) FROM facturas WHERE tipo = ? AND strftime('%m', fecha) = strftime('%m', 'now')", [tipo]),
+    ) ?? 0;
+
+    return {
+      "Hoy": hoy,
+      "Esta semana": semana,
+      "Este mes": mes,
+    };
   }
 
 }
