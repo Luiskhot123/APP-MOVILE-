@@ -24,4 +24,24 @@ class UsuarioRepository {
       orderBy: "nombre_completo ASC",
     );
   }
+  Future<int> updateUsuario({
+    required int id,
+    required String nombreCompleto,
+    required String usuario,
+    required String rol,
+    required String contrasena,
+  }) async {
+    final db = await AppDatabase.instance.database;
+    return await db.update(
+      "usuarios",
+      {
+        "nombre_completo": nombreCompleto,
+        "usuario": usuario,
+        "rol": rol,
+        "contrasena": contrasena,
+      },
+      where: "id_usuario = ?",
+      whereArgs: [id],
+    );
+  }
 }

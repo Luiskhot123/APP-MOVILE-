@@ -120,20 +120,29 @@ class FacturasRepository {
     });
   }
 
-  Future<Map<String, int>> obtenerEstadisticas(String tipo) async {
-    // tipo = "compras" o "ventas"
+  Future<Map<String, int>> obtenerEstadisticas(String tipo2) async {
+    // tipo2 = "COMPRA" o "VENTA"
     final db = await AppDatabase.instance.database;
 
     final hoy = Sqflite.firstIntValue(
-      await db.rawQuery("SELECT COUNT(*) FROM facturas WHERE tipo = ? AND DATE(fecha) = DATE('now')", [tipo]),
+      await db.rawQuery(
+        "SELECT COUNT(*) FROM facturas WHERE tipo2 = ? AND DATE(fecha_emision) = DATE('now')",
+        [tipo2],
+      ),
     ) ?? 0;
 
     final semana = Sqflite.firstIntValue(
-      await db.rawQuery("SELECT COUNT(*) FROM facturas WHERE tipo = ? AND strftime('%W', fecha) = strftime('%W', 'now')", [tipo]),
+      await db.rawQuery(
+        "SELECT COUNT(*) FROM facturas WHERE tipo2 = ? AND strftime('%W', fecha_emision) = strftime('%W', 'now')",
+        [tipo2],
+      ),
     ) ?? 0;
 
     final mes = Sqflite.firstIntValue(
-      await db.rawQuery("SELECT COUNT(*) FROM facturas WHERE tipo = ? AND strftime('%m', fecha) = strftime('%m', 'now')", [tipo]),
+      await db.rawQuery(
+        "SELECT COUNT(*) FROM facturas WHERE tipo2 = ? AND strftime('%m', fecha_emision) = strftime('%m', 'now')",
+        [tipo2],
+      ),
     ) ?? 0;
 
     return {
@@ -142,5 +151,6 @@ class FacturasRepository {
       "Este mes": mes,
     };
   }
+
 
 }

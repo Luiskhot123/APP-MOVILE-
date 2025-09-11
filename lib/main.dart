@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:inventario_app/widgets/app_drawer.dart';
 import 'pages/login_page.dart';
 import 'pages/dashboard_page.dart'; // 👈 nuevo dashboard
 import 'pages/inventory_page.dart';
@@ -12,8 +14,7 @@ import 'pages/vender_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: "assets/.env");
-
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -108,6 +109,9 @@ class _HomeState extends State<Home> {
           ),
         ),
       ),
+      // 👇 Drawer unificado
+      drawer: const AppDrawer(),
+
       body: _index == 0 ? const InventoryPage() : const FacturasPage(),
     );
   }

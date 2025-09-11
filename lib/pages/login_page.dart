@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../data/empresa_repository.dart';
 import '../data/usuario_repository.dart';
-import '../main.dart';
-import 'dashboard_page.dart'; // donde tienes la clase Home
+import '../providers/sesion_provider.dart';
+import 'dashboard_page.dart';
 
-
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _empresaRepo = EmpresaRepository();
   final _usuarioRepo = UsuarioRepository();
 
@@ -30,6 +31,14 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _cargarEmpresas();
+  }
+
+  @override
+  void dispose() {
+    _empresaCtrl.dispose();
+    _usuarioCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _cargarEmpresas() async {
@@ -73,21 +82,18 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     if (user != null) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DashboardPage(
-            idEmpresa: empresa['id_empresa'] as int, // 👈 aquí pasamos el id correcto
-          ),
-        ),
+      // ✅ Guardar sesión en Riverpod (no usar await aquí)
+      ref.read(sesionProvider.notifier).state = SesionState(
+        idEmpresa: empresa['id_empresa'] as int,
+        usuario: user['usuario']?.toString() ?? '',
       );
 
-      //Navigator.pushReplacement(
-      //  context,
-      //  MaterialPageRoute(builder: (_) => const Home()),
-      //);
-      // ✅ acceso
+      if (!mounted) return;
+      // Navegar al Dashboard (ahora sin pasar idEmpresa por constructor)
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DashboardPage()),
+      );
     } else {
       setState(() {
         _mensajeError = "Usuario o contraseña incorrectos";
@@ -161,8 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                   labelText: "Usuario",
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                v == null || v.isEmpty ? "Ingrese usuario" : null,
+                validator: (v) => v == null || v.isEmpty ? "Ingrese usuario" : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -172,8 +177,7 @@ class _LoginPageState extends State<LoginPage> {
                   border: OutlineInputBorder(),
                 ),
                 obscureText: true,
-                validator: (v) =>
-                v == null || v.isEmpty ? "Ingrese contraseña" : null,
+                validator: (v) => v == null || v.isEmpty ? "Ingrese contraseña" : null,
               ),
               const SizedBox(height: 12),
               Align(
@@ -184,16 +188,19 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: _authLoading ? null : _onContinuar,
-                child: _authLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Continuar"),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _authLoading ? null : _onContinuar,
+                  child: _authLoading
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text("Continuar"),
+                ),
               ),
               if (_mensajeError != null) ...[
                 const SizedBox(height: 12),
-                Text(_mensajeError!,
-                    style: const TextStyle(color: Colors.red)),
+                Text(_mensajeError!, style: const TextStyle(color: Colors.red)),
               ]
             ],
           ),
