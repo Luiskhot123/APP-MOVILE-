@@ -218,7 +218,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     controller: codigoCtrl,
                     decoration: InputDecoration(
                       labelText: "Código de vinculación (20 dígitos)",
-                      hintText: "0000000001Xxxxxxxxxx",
+                      hintText: "Ingresa tu codigo",
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.help_outline),
                         onPressed: () {
@@ -273,36 +273,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código inválido (empresa).')));
                         }
                       } else {
-                        // Si no hay tabla de códigos o no se encuentra, podemos fallback a PARSE directo:
-                        try {
-                          final idStr = code.substring(0, 10);
-                          final idParsed = int.tryParse(idStr) ?? 0;
-                          final rolDigit = int.tryParse(code.substring(10, 11)) ?? 0;
-                          if (idParsed <= 0 || !(rolDigit >= 1 && rolDigit <= 4)) {
-                            setStateDialog(() => loadingVerify = false);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código inválido.')));
-                            return;
-                          }
-
-                          // validar que la empresa exista
-                          final empresaRow = await _empresaRepo.findById(idParsed);
-                          if (empresaRow == null) {
-                            setStateDialog(() => loadingVerify = false);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Empresa no encontrada a partir del código.')));
-                            return;
-                          }
-
-                          empresaId = idParsed;
-                          roleInt = rolDigit;
-                          empresaNombre = empresaRow['nombre']?.toString() ?? '';
-                          setStateDialog(() {
-                            verified = true;
-                            loadingVerify = false;
-                          });
-                        } catch (e) {
-                          setStateDialog(() => loadingVerify = false);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error procesando el código.')));
-                        }
+                        // ❌ Código inválido, no hacer fallback
+                        setStateDialog(() => loadingVerify = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Código inválido o expirado.')),
+                        );
                       }
                     },
                     child: loadingVerify ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Verificar código'),
