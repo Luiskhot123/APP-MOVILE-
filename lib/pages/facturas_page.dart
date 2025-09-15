@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:inventario_app/pages/vender_page.dart';
 import '../data/facturas_repository.dart';
 import '../data/product_repository.dart';
+import 'cargar_factura_page.dart';
+import 'crear_cliente_page.dart';
 import 'crear_proveedor_page.dart';
 
 enum FacturaTab { compras, ventas }
@@ -18,205 +21,208 @@ class _FacturasPageState extends State<FacturasPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Línea que separa el header (Inventario / Facturas) de los botones
-        const Divider(height: 1, thickness: 1),
-
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+        appBar: AppBar(title: const Text("Facturación")),
+        body: Column(
           children: [
-            _SegmentButton(
-              label: 'Compras',
-              selected: _tab == FacturaTab.compras,
-              onTap: () => setState(() => _tab = FacturaTab.compras),
+            // Línea que separa el header (Inventario / Facturas) de los botones
+            const Divider(height: 1, thickness: 1),
+
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _SegmentButton(
+                  label: 'Compras',
+                  selected: _tab == FacturaTab.compras,
+                  onTap: () => setState(() => _tab = FacturaTab.compras),
+                ),
+                const SizedBox(width: 12),
+                _SegmentButton(
+                  label: 'Ventas',
+                  selected: _tab == FacturaTab.ventas,
+                  onTap: () => setState(() => _tab = FacturaTab.ventas),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            _SegmentButton(
-              label: 'Ventas',
-              selected: _tab == FacturaTab.ventas,
-              onTap: () => setState(() => _tab = FacturaTab.ventas),
+            const Divider(height: 24),
+
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _repo.fetchFacturas(
+                  tipo2: _tab == FacturaTab.compras ? "compra" : "venta",
+                ),
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final facturas = snap.data ?? [];
+                  if (facturas.isEmpty) {
+                    // Si quieres mostrar el botón aun cuando no hay facturas, cambia este return
+                    return Center(child: Text('Sin facturas'));
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: facturas.length + 1, // +1 para el botón final
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (ctx, i) {
+                      if (i == facturas.length) {
+                        // Botones finales
+                        return Column(
+                          children: [
+                            // Botón Cargar Factura / Vender
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(double.infinity, 56),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(28),
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  if (_tab == FacturaTab.compras) {
+                                    final result = await Navigator.pushNamed(context, '/cargar_factura');
+                                    if (result == true) {
+                                      setState(() {}); // refresca la lista al volver
+                                    }
+                                  } else {
+                                    // 👉 Aquí llamamos la nueva pantalla de venta
+                                    final result = await Navigator.pushNamed(context, '/venta');
+                                    if (result == true) {
+                                      setState(() {}); // refresca
+                                    }
+                                  }
+                                },
+                                child: Text(
+                                  _tab == FacturaTab.compras ? "Cargar Factura" : "Vender",
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(double.infinity, 56),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(28),
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  if (_tab == FacturaTab.compras) {
+                                    // 👉 Si estoy en Compras → Crear Proveedor
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const CrearProveedorPage()),
+                                    );
+                                  } else if (_tab == FacturaTab.ventas) {
+                                    // 👉 Si estoy en Ventas → Crear Cliente
+                                    final result = await Navigator.pushNamed(context, '/crear-cliente');
+                                    if (result == true) {
+                                      setState(() {}); // refresca si luego muestras lista de clientes
+                                    }
+                                  }
+                                },
+                                child: Text(
+                                  _tab == FacturaTab.compras ? "Crear Proveedor" : "Crear Cliente",
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+
+                          ],
+                        );
+                      }
+
+
+                      final f = facturas[i];
+
+                      // valores desde la vista: total_base_cop, total_iva_cop, total_factura_cop
+                      final subtotal = f['total_base_cop'] ?? 0;
+                      final iva = f['total_iva_cop'] ?? 0;
+                      final total = f['total_factura_cop'] ?? 0;
+
+                      return Card(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // Icono lateral
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: _tab == FacturaTab.compras ? Colors.green.shade50 : Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  _tab == FacturaTab.compras ? Icons.shopping_cart : Icons.label,
+                                  color: _tab == FacturaTab.compras ? Colors.green : Colors.orange,
+                                  size: 28,
+                                ),
+                              ),
+
+                              const SizedBox(width: 12),
+
+                              // Info central
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Factura #${f['codigo_factura'] ?? ''}",
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text("Fecha: ${f['fecha_emision'] ?? ''}", style: const TextStyle(fontSize: 13)),
+                                    const SizedBox(height: 6),
+                                    Text("Subtotal: ${_formatCOP(subtotal)}", style: const TextStyle(fontSize: 13)),
+                                    Text("IVA: ${_formatCOP(iva)}", style: const TextStyle(fontSize: 13)),
+                                    const SizedBox(height: 6),
+                                    Text("Estado: ${f['estado'] ?? ''}", style: TextStyle(
+                                      fontSize: 13,
+                                      color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                                    )),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 12),
+
+                              // Total a la derecha
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _formatCOP(total),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
-        const Divider(height: 24),
-
-        Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _repo.fetchFacturas(
-              tipo2: _tab == FacturaTab.compras ? "compra" : "venta",
-            ),
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final facturas = snap.data ?? [];
-              if (facturas.isEmpty) {
-                // Si quieres mostrar el botón aun cuando no hay facturas, cambia este return
-                return Center(child: Text('Sin facturas'));
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: facturas.length + 1, // +1 para el botón final
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (ctx, i) {
-                  if (i == facturas.length) {
-                    // Botones finales
-                    return Column(
-                      children: [
-                        // Botón Cargar Factura / Vender
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(28),
-                              ),
-                            ),
-                            onPressed: () async {
-                              if (_tab == FacturaTab.compras) {
-                                final result = await Navigator.pushNamed(context, '/cargar_factura');
-                                if (result == true) {
-                                  setState(() {}); // refresca la lista al volver
-                                }
-                              } else {
-                                // 👉 Aquí llamamos la nueva pantalla de venta
-                                final result = await Navigator.pushNamed(context, '/venta');
-                                if (result == true) {
-                                  setState(() {}); // refresca
-                                }
-                              }
-                            },
-                            child: Text(
-                              _tab == FacturaTab.compras ? "Cargar Factura" : "Vender",
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(28),
-                              ),
-                            ),
-                            onPressed: () async {
-                              if (_tab == FacturaTab.compras) {
-                                // 👉 Si estoy en Compras → Crear Proveedor
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const CrearProveedorPage()),
-                                );
-                              } else if (_tab == FacturaTab.ventas) {
-                                // 👉 Si estoy en Ventas → Crear Cliente
-                                final result = await Navigator.pushNamed(context, '/crear-cliente');
-                                if (result == true) {
-                                  setState(() {}); // refresca si luego muestras lista de clientes
-                                }
-                              }
-                            },
-                            child: Text(
-                              _tab == FacturaTab.compras ? "Crear Proveedor" : "Crear Cliente",
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
-
-                      ],
-                    );
-                  }
-
-
-                  final f = facturas[i];
-
-                  // valores desde la vista: total_base_cop, total_iva_cop, total_factura_cop
-                  final subtotal = f['total_base_cop'] ?? 0;
-                  final iva = f['total_iva_cop'] ?? 0;
-                  final total = f['total_factura_cop'] ?? 0;
-
-                  return Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Icono lateral
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: _tab == FacturaTab.compras ? Colors.green.shade50 : Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              _tab == FacturaTab.compras ? Icons.shopping_cart : Icons.label,
-                              color: _tab == FacturaTab.compras ? Colors.green : Colors.orange,
-                              size: 28,
-                            ),
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          // Info central
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Factura #${f['codigo_factura'] ?? ''}",
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 6),
-                                Text("Fecha: ${f['fecha_emision'] ?? ''}", style: const TextStyle(fontSize: 13)),
-                                const SizedBox(height: 6),
-                                Text("Subtotal: ${_formatCOP(subtotal)}", style: const TextStyle(fontSize: 13)),
-                                Text("IVA: ${_formatCOP(iva)}", style: const TextStyle(fontSize: 13)),
-                                const SizedBox(height: 6),
-                                Text("Estado: ${f['estado'] ?? ''}", style: TextStyle(
-                                  fontSize: 13,
-                                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
-                                )),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          // Total a la derecha
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _formatCOP(total),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
   String _formatCOP(dynamic value) {
@@ -248,7 +254,24 @@ class _FacturasPageState extends State<FacturasPage> {
     return sign + out.reversed.join();
   }
 }
+/// ✅ Wrapper standalone para que FacturasPage funcione como ventana independiente
+class FacturasStandalone extends StatelessWidget {
+  const FacturasStandalone({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      // 👇 importante: registrar rutas aquí también
+      routes: {
+        '/': (_) => const FacturasPage(),
+        '/cargar_factura': (_) => const CargarFacturaPage(),
+        '/venta': (_) => const VenderPage(),
+        '/crear-cliente': (_) => const CrearClientePage(),
+      },
+    );
+  }
+}
 class _SegmentButton extends StatelessWidget {
   final String label;
   final bool selected;

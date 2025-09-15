@@ -44,4 +44,21 @@ class UsuarioRepository {
       whereArgs: [id],
     );
   }
+  Future<int> insertUsuario({
+    required int idEmpresa,
+    required String usuario,
+    required String contrasena,
+    required String nombreCompleto,
+    required int rol, // entero
+  }) async {
+    final db = await AppDatabase.instance.database;
+    return await db.insert('usuarios', {
+      'id_empresa': idEmpresa,
+      'usuario': usuario,
+      'contrasena': contrasena,
+      'nombre_completo': nombreCompleto,
+      'rol': rol,
+    });
+  }
+
 }

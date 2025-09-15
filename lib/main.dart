@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:inventario_app/providers/sesion_provider.dart';
 import 'package:inventario_app/widgets/app_drawer.dart';
 import 'pages/login_page.dart';
 import 'pages/dashboard_page.dart'; // 👈 nuevo dashboard
@@ -10,6 +11,7 @@ import 'pages/crear_producto_page.dart';
 import 'pages/cargar_factura_page.dart';
 import 'pages/crear_cliente_page.dart';
 import 'pages/vender_page.dart';
+import 'widgets/role_guard.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,9 +32,12 @@ class MyApp extends StatelessWidget {
       ),
       home: const LoginPage(),
       routes: {
+        '/home': (_) => const Home(),
+        '/dashboard': (_) => const DashboardPage(),
+        '/inventory': (ctx) => const RoleGuard(page: InventoryStandalone(), requiredRole: 'INVENTARIO'),
+        '/facturas': (ctx) => const RoleGuard(page: FacturasStandalone(), requiredRole: 'FACTURACION'),
         '/crear_producto': (_) => const CrearProductoPage(),
         '/cargar_factura': (_) => const CargarFacturaPage(),
-        '/facturas': (_) => const FacturasPage(),
         '/venta': (_) => const VenderPage(),
         '/crear-cliente': (_) => const CrearClientePage(),
       },
@@ -40,18 +45,49 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Home extends StatefulWidget {
+class Home extends ConsumerStatefulWidget {
   const Home({super.key});
 
   @override
-  State<Home> createState() => _HomeState();
+  ConsumerState<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends ConsumerState<Home> {
   int _index = 0; // 0 = Inventario, 1 = Facturas
 
   @override
   Widget build(BuildContext context) {
+    final sesion = ref.watch(sesionProvider);
+
+    if (sesion == null) {
+      // por seguridad, pedir login
+      return Scaffold(
+        body: Center(child: Text('No hay sesión activa.')),
+      );
+    }
+
+    final isAdmin = sesion.isAdmin;
+    final hasInventario = sesion.hasRole('INVENTARIO');
+    final hasFacturacion = sesion.hasRole('FACTURACION');
+
+    // si no es admin y tiene un solo permiso -> mostrar esa pantalla independiente
+    if (!isAdmin && hasInventario && !hasFacturacion) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Inventario - ${sesion.usuario}')),
+        drawer: const AppDrawer(),
+        body: const InventoryPage(),
+      );
+    }
+
+    if (!isAdmin && hasFacturacion && !hasInventario) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Facturas - ${sesion.usuario}')),
+        drawer: const AppDrawer(),
+        body: const FacturasPage(),
+      );
+    }
+
+    // Si es admin, o tiene ambos permisos, mostramos la versión con tabs
     return Scaffold(
       appBar: AppBar(
         title: const Text("Inventario App"),
@@ -74,12 +110,7 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                     if (_index == 0)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        height: 2,
-                        width: 60,
-                        color: Colors.blue,
-                      ),
+                      Container(margin: const EdgeInsets.only(top: 4), height: 2, width: 60, color: Colors.blue),
                   ],
                 ),
               ),
@@ -96,12 +127,7 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                     if (_index == 1)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        height: 2,
-                        width: 60,
-                        color: Colors.blue,
-                      ),
+                      Container(margin: const EdgeInsets.only(top: 4), height: 2, width: 60, color: Colors.blue),
                   ],
                 ),
               ),
@@ -109,10 +135,9 @@ class _HomeState extends State<Home> {
           ),
         ),
       ),
-      // 👇 Drawer unificado
       drawer: const AppDrawer(),
-
       body: _index == 0 ? const InventoryPage() : const FacturasPage(),
     );
   }
 }
+

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/product_repository.dart';
 import '../models/product.dart';
+import 'crear_producto_page.dart';
 
 enum StockTab { enStock, agotado }
 enum EnStockMenu { todos, bajoStock }
@@ -31,107 +32,125 @@ class _InventoryPageState extends State<InventoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Línea que separa el header (Inventario / Facturas) de los botones
-        const Divider(height: 1, thickness: 1),
-
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+      appBar: AppBar(title: const Text("Inventario")),
+        body: Column(
           children: [
-            _SegmentButton(
-              label: 'En stock',
-              selected: _tab == StockTab.enStock,
-              onTap: () => setState(() => _tab = StockTab.enStock),
+            // Línea que separa el header (Inventario / Facturas) de los botones
+            const Divider(height: 1, thickness: 1),
+
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _SegmentButton(
+                  label: 'En stock',
+                  selected: _tab == StockTab.enStock,
+                  onTap: () => setState(() => _tab = StockTab.enStock),
+                ),
+                const SizedBox(width: 12),
+                _SegmentButton(
+                  label: 'Agotado',
+                  selected: _tab == StockTab.agotado,
+                  onTap: () => setState(() => _tab = StockTab.agotado),
+                ),
+                // const SizedBox(width: 12),
+              ],
             ),
-            const SizedBox(width: 12),
-            _SegmentButton(
-              label: 'Agotado',
-              selected: _tab == StockTab.agotado,
-              onTap: () => setState(() => _tab = StockTab.agotado),
+            const Divider(height: 24),
+
+            if (_tab == StockTab.enStock)
+              PopupMenuButton<EnStockMenu>(
+                onSelected: (v) => setState(() => _menu = v),
+                itemBuilder: (ctx) => const [
+                  PopupMenuItem(value: EnStockMenu.todos, child: Text('Todos')),
+                  PopupMenuItem(value: EnStockMenu.bajoStock, child: Text('Bajo stock')),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.menu, size: 18),
+                      const SizedBox(width: 6),
+                      Text(_menu == EnStockMenu.todos ? 'Todos' : 'Bajo stock'),
+                    ],
+                  ),
+                ),
+              ),
+
+            Expanded(
+              child: FutureBuilder<List<Product>>(
+                future: _load(),
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final items = snap.data ?? [];
+                  if (items.isEmpty) {
+                    return const Center(child: Text('Sin productos'));
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: items.length +1,// sumamos 1 para el botón "Crear Producto"
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (ctx, i) { //=> _ProductTile(items[i]),
+                      if (i == items.length) {
+                        // 👇 último item -> botón crear producto
+                        return ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final result = await Navigator.pushNamed(context, '/crear_producto');
+                            if (result == true) {
+                              setState(() {}); // 👈 esto forza a reconstruir y recargar los productos
+
+                              // 👇 Mostrar SnackBar
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("✅ Producto creado con éxito"),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text("Crear Producto"),
+                        );
+                      }
+                      return _ProductTile(items[i]);
+                    },
+                  );
+                },
+              ),
             ),
-            // const SizedBox(width: 12),
           ],
         ),
-        const Divider(height: 24),
-
-        if (_tab == StockTab.enStock)
-          PopupMenuButton<EnStockMenu>(
-            onSelected: (v) => setState(() => _menu = v),
-            itemBuilder: (ctx) => const [
-              PopupMenuItem(value: EnStockMenu.todos, child: Text('Todos')),
-              PopupMenuItem(value: EnStockMenu.bajoStock, child: Text('Bajo stock')),
-            ],
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade400),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.menu, size: 18),
-                  const SizedBox(width: 6),
-                  Text(_menu == EnStockMenu.todos ? 'Todos' : 'Bajo stock'),
-                ],
-              ),
-            ),
-          ),
-
-        Expanded(
-          child: FutureBuilder<List<Product>>(
-            future: _load(),
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final items = snap.data ?? [];
-              if (items.isEmpty) {
-                return const Center(child: Text('Sin productos'));
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: items.length +1,// sumamos 1 para el botón "Crear Producto"
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (ctx, i) { //=> _ProductTile(items[i]),
-                  if (i == items.length) {
-                    // 👇 último item -> botón crear producto
-                    return ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: () async {
-                        final result = await Navigator.pushNamed(context, '/crear_producto');
-                        if (result == true) {
-                          setState(() {}); // 👈 esto forza a reconstruir y recargar los productos
-
-                          // 👇 Mostrar SnackBar
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("✅ Producto creado con éxito"),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text("Crear Producto"),
-                    );
-                  }
-                  return _ProductTile(items[i]);
-                },
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }
+/// ✅ Wrapper standalone para que InventoryPage funcione como ventana independiente
+class InventoryStandalone extends StatelessWidget {
+  const InventoryStandalone({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      // 👇 importante: registrar rutas aquí también
+      routes: {
+        '/': (_) => const InventoryPage(),
+        '/crear_producto': (_) => const CrearProductoPage(),
+      },
+    );
+  }
+}
 
 class _SegmentButton extends StatelessWidget {
   final String label;
