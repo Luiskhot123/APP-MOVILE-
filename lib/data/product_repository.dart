@@ -98,4 +98,25 @@ class ProductRepository {
     };
   }
 
+  Future<List<Product>> searchProducts(String query) async {
+    final db = await AppDatabase.instance.database;
+    final result = await db.query(
+      'productos', // 👈 tu tabla
+      where: 'nombre LIKE ?',
+      whereArgs: ['%$query%'],
+      limit: 10,
+    );
+
+    // Convertir cada fila (Map) a un Product
+    return result.map((row) => Product.fromMap(row)).toList();
+  }
+
+  Future<List<Product>> getAllProducts() async {
+    final db = await AppDatabase.instance.database;
+    final res = await db.query('productos');
+    return res.map((row) => Product.fromMap(row)).toList();
+  }
+
+
+
 }

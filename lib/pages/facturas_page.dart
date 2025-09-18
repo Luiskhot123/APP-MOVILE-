@@ -5,6 +5,7 @@ import '../data/product_repository.dart';
 import 'cargar_factura_page.dart';
 import 'crear_cliente_page.dart';
 import 'crear_proveedor_page.dart';
+import 'facturar_tradicional_page.dart';
 
 enum FacturaTab { compras, ventas }
 
@@ -88,11 +89,53 @@ class _FacturasPageState extends State<FacturasPage> {
                                       setState(() {}); // refresca la lista al volver
                                     }
                                   } else {
-                                    // 👉 Aquí llamamos la nueva pantalla de venta
-                                    final result = await Navigator.pushNamed(context, '/venta');
-                                    if (result == true) {
-                                      setState(() {}); // refresca
-                                    }
+                                    // 👉 Abrir modal en lugar de ir directo a vender_page
+                                    showModalBottomSheet(
+                                      context: context,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                      ),
+                                      builder: (ctx) {
+                                        return Padding(
+                                          padding: const EdgeInsets.all(20),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  Navigator.pop(ctx); // cerrar modal
+                                                  final result = await Navigator.pushNamed(context, '/venta');
+                                                  if (result == true) {
+                                                    setState(() {}); // refresca
+                                                  }
+                                                },
+                                                child: const Text("Facturar con Código de barras"),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(builder: (_) => const FacturarTradicionalPage()),
+                                                  );
+
+                                                },
+                                                child: const Text("Facturar Tradicional"),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  Navigator.pop(ctx);
+                                                  // TODO: Navegar a "Facturar con IA"
+                                                },
+                                                child: const Text("Facturar con IA"),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    );
                                   }
                                 },
                                 child: Text(
