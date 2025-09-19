@@ -14,6 +14,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../services/email_service.dart';
+import '../services/factura_service.dart';
 import 'crear_cliente_page.dart';
 
 
@@ -282,21 +283,6 @@ class _VenderPageState extends State<VenderPage> {
     }
   }
 
-  Future<void> _confirmarCancelarVenta() async {
-    final salir = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('¿Desea cancelar la venta?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Regresar')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Cancelar')),
-        ],
-      ),
-    );
-    if (salir == true && mounted) {
-      Navigator.pop(context, false); // volvemos a facturas_page
-    }
-  }
 
   int get _totalCOP {
     double t = 0;
@@ -356,7 +342,9 @@ class _VenderPageState extends State<VenderPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _confirmarCancelarVenta,
+                        onPressed: () async {
+                          await FacturaService.confirmarCancelarVenta(context);
+                        },
                         child: const Text('Cancelar'),
                       ),
                     ),
@@ -364,114 +352,19 @@ class _VenderPageState extends State<VenderPage> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
-                          // Paso 1: preguntar medio de pago
-                          final medioPago = await showDialog<int>(
+                          await FacturaService.procesarVenta(
                             context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text("Seleccione medio de pago"),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.pop(ctx, 1),
-                                    child: const Text("EFECTIVO"),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.pop(ctx, 2),
-                                    child: const Text("TARJETA"),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.pop(ctx, 3),
-                                    child: const Text("TRANSFERENCIA"),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            carrito: _carrito,
+                            totalCOP: _totalCOP,
+                            cliente: _clienteSeleccionado,
                           );
-
-                          if (medioPago == null) return;
-
-                          // Paso 2: preparar datos
-                          final repo = FacturasRepository();
-                          final facturaData = {
-                            "tipo": "FACTURA",
-                            "tipo2": "VENTA",
-                            "estado": "ACTIVA",
-                            "fecha_emision": DateTime.now().toIso8601String().split('T').first,
-                            "id_cliente": _clienteSeleccionado?.idCliente,
-                            "id_medio_pago": medioPago,
-                            "id_proveedor": null,
-                          };
-
-                          final detalles = _carrito.values.map((item) => {
-                            "producto_id": item.product.id,
-                            "cantidad": item.qty,
-                            "precio_unit_base_cop": item.product.precio.toInt(),
-                            "iva_pct": item.product.ivaPct,
-                            "retencion_fuente_pct": 0.0,
-                            "otros_impuestos_pct": 0.0,
-                          }).toList();
-
-                          try {
-                            // Paso 3: guardar factura
-                            final idFactura = await repo.insertarFactura(facturaData, detalles);
-                            print("✅ Factura creada con id: $idFactura");
-
-                            // Paso 4: generar recibo PDF
-                            final pdfData = await _generarReciboPOS(
-                              idFactura.toString(),
-                              DateTime.now(),
-                              medioPago,
-                              _carrito,
-                              _totalCOP,
-                              cliente: _clienteSeleccionado,
-                            );
-
-                            // Enviar al correo del cliente (si tiene)
-                            if (_clienteSeleccionado?.correo != null && _clienteSeleccionado!.correo!.isNotEmpty) {
-                              final ok = await EmailService.enviarFactura(
-                                destinatario: _clienteSeleccionado!.correo!,
-                                nombreDestinatario: _clienteSeleccionado!.nombreCompleto ?? _clienteSeleccionado!.razonSocial,
-                                pdfBytes: pdfData,
-                                asunto: "Factura de tu compra en Fashion Line",
-                              );
-
-                              if (ok) {
-                                print("✅ Correo enviado a ${_clienteSeleccionado!.correo}");
-                              } else {
-                                print("❌ Falló el envío del correo");
-                              }
-                            }
-
-                            // Paso 5: mostrar/print recibo
-                            await Printing.layoutPdf(
-                              onLayout: (format) async => pdfData,
-                            );
-
-                            if (!mounted) return;
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Factura registrada con éxito ✅")),
-                            );
-
-                            // Paso 6: volver a facturas_page y refrescar
-                            Navigator.pop(context, true);
-
-                          } catch (e) {
-                            print("❌ Error guardando factura: $e");
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error guardando factura: $e")),
-                            );
-                          }
                         },
-
                         child: const Text('Vender'),
                       ),
                     ),
-
                   ],
-                ),
+                )
+
               ],
             ),
           ),

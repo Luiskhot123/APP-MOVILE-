@@ -114,13 +114,16 @@ class _FacturasPageState extends State<FacturasPage> {
                                               ),
                                               const SizedBox(height: 12),
                                               ElevatedButton(
-                                                onPressed: () {
-                                                  Navigator.push(
+                                                onPressed: () async {
+                                                  final result = await Navigator.push(
                                                     context,
                                                     MaterialPageRoute(builder: (_) => const FacturarTradicionalPage()),
                                                   );
-
+                                                  if (result == true || result == false) {
+                                                    setState(() {}); // refresca facturas al regresar
+                                                  }
                                                 },
+
                                                 child: const Text("Facturar Tradicional"),
                                               ),
                                               const SizedBox(height: 12),

@@ -6,6 +6,7 @@ import '../models/product.dart';
 import '../models/venta_item.dart';
 import '../models/cliente.dart';
 import '../data/cliente_repository.dart';
+import '../services/factura_service.dart';
 import 'crear_cliente_page.dart';
 
 class FacturarTradicionalPage extends StatefulWidget {
@@ -314,48 +315,30 @@ class _FacturarTradicionalPageState extends State<FacturarTradicionalPage> {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text("Cancelar factura"),
-                            content: const Text("¿Está seguro que desea cancelar la factura?"),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text("Regresar"),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                ),
-                                onPressed: () {
-                                  // 👇 Aquí limpias el carrito y reinicias todo
-                                  setState(() {
-                                    _carrito.clear();
-                                  });
-                                  Navigator.pop(context); // cerrar modal
-                                },
-                                child: const Text("Sí, Cancelar"),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          await FacturaService.confirmarCancelarVenta(context);
+                        },
+                        child: const Text('Cancelar'),
                       ),
-                      child: const Text("Cancelar"),
-                    ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Aquí integras la lógica para guardar factura (como en VenderPage)
+                        onPressed: () async {
+                          // convertir el Map<int, VentaItem> en Map<String, VentaItem>
+                          final carritoConvertido = _carrito.map(
+                                (key, value) => MapEntry(key.toString(), value),
+                          );
+
+                          await FacturaService.procesarVenta(
+                            context: context,
+                            carrito: carritoConvertido,
+                            totalCOP: _totalCOP,
+                            cliente: _clienteSeleccionado,
+                          );
                         },
-                        child: const Text("Vender"),
+                        child: const Text('Vender'),
                       ),
                     ),
                   ],
