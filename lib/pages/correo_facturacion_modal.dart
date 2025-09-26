@@ -43,7 +43,35 @@ class _CorreoFacturacionModalState
     extends ConsumerState<CorreoFacturacionModal> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _correoController = TextEditingController();
-  //final EmailService emailService = EmailService(); // 👈 instancia
+
+  bool _modoEdicion = false; // 👈 Controla si estamos en modo edición
+  String? _correoOriginal; // 👈 Guardamos el correo original de la DB
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarCorreo();
+  }
+
+  Future<void> _cargarCorreo() async {
+    final sesion = ref.read(sesionProvider);
+    final empresaId = sesion?.idEmpresa ?? 0;
+    final repo = EmpresaRepository();
+
+    final correo = await repo.obtenerCorreoFacturacion(empresaId);
+
+    if (correo != null) {
+      setState(() {
+        _correoController.text = correo;
+        _correoOriginal = correo; // 👈 Guardamos original
+        _modoEdicion = false; // 👈 Inicialmente bloqueado
+      });
+    } else {
+      setState(() {
+        _modoEdicion = true; // 👈 Si no hay correo, habilitado
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,10 +86,12 @@ class _CorreoFacturacionModalState
         key: _formKey,
         child: TextFormField(
           controller: _correoController,
+          enabled: _modoEdicion, // 👈 Bloquea o habilita
           decoration: const InputDecoration(
             labelText: "Correo electrónico",
           ),
           validator: (value) {
+            if (!_modoEdicion) return null; // 👈 Si está bloqueado no validar
             if (value == null || value.isEmpty) {
               return "El correo es obligatorio";
             }
@@ -73,9 +103,16 @@ class _CorreoFacturacionModalState
           },
         ),
       ),
-      actions: [
+      actions: _modoEdicion
+          ? [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // 👇 Restauramos correo original y bloqueamos edición
+            setState(() {
+              _correoController.text = _correoOriginal ?? "";
+              _modoEdicion = false;
+            });
+          },
           child: const Text("Cancelar"),
         ),
         ElevatedButton(
@@ -83,11 +120,9 @@ class _CorreoFacturacionModalState
             if (_formKey.currentState!.validate()) {
               final correo = _correoController.text;
 
-              // Guardar en la BD local
               final repo = EmpresaRepository();
               await repo.actualizarCorreoFacturacion(empresaId, correo);
 
-              // Enviar correo de verificación a ti mismo
               await EmailService.enviarCorreoVerificacion(
                 correoIngresado: correo,
                 empresaId: empresaId,
@@ -95,19 +130,69 @@ class _CorreoFacturacionModalState
 
               if (context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Correo guardado y notificación enviada")),
-                );
-                // Guardamos el correo en la configuración global
+                await _mostrarModalCorreoExitoso(context);
                 ConfiguracionEmail.actualizarCorreo(correo);
-
               }
             }
           },
-          child: const Text("Vincular"),
+          child: const Text("Guardar"),
         ),
-
+      ]
+          : [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cerrar"),
+        ),
+        ElevatedButton(
+          onPressed: () => _mostrarConfirmacion(context),
+          child: const Text("Modificar"),
+        ),
       ],
     );
   }
+  Future<void> _mostrarConfirmacion(BuildContext context) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Confirmar"),
+        content: const Text(
+            "¿Está seguro de que quiere modificar el correo de facturación?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("No"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Sí"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      setState(() {
+        _modoEdicion = true; // 👈 Habilita edición
+      });
+    }
+  }
+  Future<void> _mostrarModalCorreoExitoso(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("¡Éxito!"),
+        content: const Text("El correo fue vinculado correctamente."),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Aceptar"),
+          ),
+        ],
+      ),
+    );
+    setState(() {
+      _modoEdicion = false; // 👈 Volvemos al estado bloqueado
+    });
+  }
+
 }
