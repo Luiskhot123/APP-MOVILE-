@@ -1,22 +1,26 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import '../data/empresa_repository.dart';
 import '../data/product_repository.dart';
 import '../models/product.dart';
 import '../models/venta_item.dart';
 import '../models/cliente.dart';
 import '../data/cliente_repository.dart';
+import '../providers/sesion_provider.dart';
 import '../services/factura_service.dart';
 import 'crear_cliente_page.dart';
 
-class FacturarTradicionalPage extends StatefulWidget {
+class FacturarTradicionalPage extends ConsumerStatefulWidget {
   const FacturarTradicionalPage({super.key});
 
   @override
-  State<FacturarTradicionalPage> createState() => _FacturarTradicionalPageState();
+  ConsumerState<FacturarTradicionalPage> createState() => _FacturarTradicionalPageState();
 }
 
-class _FacturarTradicionalPageState extends State<FacturarTradicionalPage> {
+class _FacturarTradicionalPageState extends ConsumerState<FacturarTradicionalPage> {
   final _repo = ProductRepository();
   final Map<int, VentaItem> _carrito = {}; // key = id_producto
   Cliente? _clienteSeleccionado;
@@ -33,7 +37,10 @@ class _FacturarTradicionalPageState extends State<FacturarTradicionalPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _preguntarFacturaElectronica());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _preguntarFacturaElectronica(ref);
+    });
+
   }
 
   @override
@@ -45,17 +52,71 @@ class _FacturarTradicionalPageState extends State<FacturarTradicionalPage> {
   }
 
   // -------- Modal de factura electrónica y validación de cliente (igual que VenderPage) --------
-  Future<void> _preguntarFacturaElectronica() async {
+  Future<void> _preguntarFacturaElectronica(WidgetRef ref) async {
+    final sesionState = ref.watch(sesionProvider); // 👈 ahora sí funciona
+    final idEmpresa = sesionState?.idEmpresa;
+
+    final empresaRepo = EmpresaRepository();
+
     final deseaFactura = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('¿Desea factura electrónica?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('No')),
-            ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Sí')),
-          ],
+        bool checking = false;
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('¿Desea factura electrónica?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('No'),
+                ),
+                ElevatedButton(
+                  onPressed: checking
+                      ? null
+                      : () async {
+                    setState(() => checking = true);
+                    try {
+                      final correo = await empresaRepo.obtenerCorreoFacturacion(idEmpresa!);
+                      if (correo == null) {
+                        setState(() => checking = false);
+                        await showDialog(
+                          context: context,
+                          builder: (ctx2) => AlertDialog(
+                            title: const Text('Correo de facturación no vinculado'),
+                            content: const Text(
+                              'Aún no tienes un correo de facturación vinculado a tu cuenta. '
+                                  'Debes vincular uno para poder facturar de manera electrónica.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx2),
+                                child: const Text('Aceptar'),
+                              ),
+                            ],
+                          ),
+                        );
+                        return; // 👈 permanecemos en el modal principal
+                      }
+
+                      Navigator.of(ctx).pop(true); // ✅ tiene correo → cerramos
+                    } catch (e) {
+                      setState(() => checking = false);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error comprobando correo: $e')),
+                        );
+                      }
+                    }
+                  },
+                  child: checking
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Sí'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -65,16 +126,19 @@ class _FacturarTradicionalPageState extends State<FacturarTradicionalPage> {
       if (cliente != null) {
         setState(() => _clienteSeleccionado = cliente);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cliente: ${cliente.nombreCompleto}')),
+          SnackBar(content: Text('Cliente seleccionado: ${cliente.nombreCompleto}')),
         );
       } else {
-        // si cancela, volvemos a preguntar
-        await _preguntarFacturaElectronica();
+        await _preguntarFacturaElectronica(ref); // 👈 reintento
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venta sin cliente asociado')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Venta sin cliente asociado')),
+      );
     }
   }
+
+
 
   Future<Cliente?> mostrarModalValidacionCliente(BuildContext context) {
     final repo = ClienteRepository();
