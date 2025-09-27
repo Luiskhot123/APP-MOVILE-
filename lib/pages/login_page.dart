@@ -105,7 +105,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         idEmpresa: empresa['id_empresa'] as int,
         usuario: user['usuario']?.toString() ?? '',
         rol: user['rol'],
+        nombreEmpresa: empresa['nombre']?.toString() ?? '',
+        nit: empresa['nit']?.toString() ?? '',
+        direccion: empresa['direccion']?.toString() ?? '',
+        // Dummy hasta que tengas integración DIAN
+        resolucionDian: '0000000000',
+        claveTecnica: 'CLAVE_DUMMY',
+        tipoAmbiente: 'PRUEBAS', // pruebas
       );
+
 
       if (!mounted) return;
 
@@ -353,10 +361,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                       // Auto-login: guardar sesión (convertimos a texto para SesionState)
                       final roleStr = _roleIntToString(roleInt!);
+
+                      // Traer la empresa de la DB
+                      final empresaRepo = EmpresaRepository();
+                      final empresa = await empresaRepo.findById(empresaId!);
+
+                      if (empresa == null) {
+                        throw Exception("No se encontró la empresa con id $empresaId");
+                      }
+
                       ref.read(sesionProvider.notifier).state = SesionState(
                         idEmpresa: empresaId!,
                         usuario: usuarioNuevo,
                         rol: roleStr,
+                        nombreEmpresa: empresa['nombre'] as String,
+                        nit: empresa['nit'] as String,
+                        direccion: empresa['direccion'] as String,
+                        // Dummy DIAN hasta tener reales
+                        resolucionDian: "1234567890",
+                        claveTecnica: "CLAVE_DUMMY",
+                        tipoAmbiente: "PRUEBAS", // pruebas
                       );
 
                       // navega según rol

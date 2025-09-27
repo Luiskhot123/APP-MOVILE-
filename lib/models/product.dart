@@ -8,6 +8,10 @@ class Product {
   final String? categoria;
   final String? unidad;
   final int bajoStock;
+  final String? sku;
+  final String? codigoBarras;
+  final double otrosImpuestosPct;
+
 
   Product({
     required this.id,
@@ -19,6 +23,9 @@ class Product {
     this.categoria,
     this.unidad,
     required this.bajoStock,
+    this.sku,
+    this.codigoBarras,
+    required this.otrosImpuestosPct,
   });
 
   factory Product.fromMap(Map<String, dynamic> json) => Product(
@@ -31,5 +38,8 @@ class Product {
     categoria: json['categoria'],   // viene del JOIN
     unidad: json['unidad'],         // viene del JOIN
     bajoStock: json['bajo_stock'] != null ? json['bajo_stock'] as int : 5, // 👈 default
+    sku: json['sku'], // 👈 mapea
+    codigoBarras: json['codigo_barras'], // 👈 mapea
+    otrosImpuestosPct: (json['otros_impuestos_pct'] ?? 0).toDouble(), // 👈 mapea el iva
   );
 }

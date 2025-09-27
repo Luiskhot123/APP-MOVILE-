@@ -397,6 +397,7 @@ class _FacturarTradicionalPageState extends ConsumerState<FacturarTradicionalPag
 
                           await FacturaService.procesarVenta(
                             context: context,
+                            ref: ref,
                             carrito: carritoConvertido,
                             totalCOP: _totalCOP,
                             cliente: _clienteSeleccionado,

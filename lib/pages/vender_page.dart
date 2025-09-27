@@ -401,6 +401,7 @@ class _VenderPageState extends ConsumerState<VenderPage> {
                         onPressed: () async {
                           await FacturaService.procesarVenta(
                             context: context,
+                            ref: ref,
                             carrito: _carrito,
                             totalCOP: _totalCOP,
                             cliente: _clienteSeleccionado,
