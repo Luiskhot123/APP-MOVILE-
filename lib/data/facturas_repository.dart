@@ -25,16 +25,19 @@ class FacturasRepository {
     final db = await AppDatabase.instance.database;
 
     return await db.transaction((txn) async {
-      // 1. Generar un código temporal único para cumplir con NOT NULL
+      // 1️⃣ Generar un código temporal único para cumplir con NOT NULL
       final tempCodigo = "TMP-${DateTime.now().millisecondsSinceEpoch}";
 
       final facturaData = Map<String, dynamic>.from(factura);
       facturaData["codigo_factura"] = tempCodigo;
 
-      // 2. Insertar factura
+      // 🔸 Si no trae forma de pago, por defecto será contado (1)
+      facturaData["forma_pago_id"] = factura["forma_pago_id"] ?? 1;
+
+      // 2️⃣ Insertar factura
       final facturaId = await txn.insert("facturas", facturaData);
 
-      // 3. Generar código definitivo con ceros a la izquierda (mínimo 4 dígitos)
+      // 3️⃣ Generar código definitivo con ceros a la izquierda
       final codigoFactura = "FAC-${facturaId.toString().padLeft(4, '0')}";
 
       await txn.update(
@@ -44,7 +47,7 @@ class FacturasRepository {
         whereArgs: [facturaId],
       );
 
-      // 4. Insertar detalles de factura
+      // 4️⃣ Insertar detalles de factura
       for (final d in detalles) {
         await txn.insert("detalle_factura", {
           "id_factura": facturaId,
@@ -56,7 +59,7 @@ class FacturasRepository {
           "otros_impuestos_pct": d["otros_impuestos_pct"] ?? 0.0,
         });
 
-        // 5. Actualizar stock
+        // 5️⃣ Actualizar stock según tipo
         if (factura["tipo2"] == "VENTA") {
           await txn.rawUpdate(
             "UPDATE productos SET stock = stock - ? WHERE id_producto = ?",
@@ -70,9 +73,34 @@ class FacturasRepository {
         }
       }
 
+      // 6️⃣ Si la factura es a crédito, registramos en deudores
+      if (facturaData["forma_pago_id"] == 2) {
+        final idCliente = facturaData["id_cliente"];
+        final plazo = facturaData["plazo"] ?? 0;
+        final abono = facturaData["abono_inicial"] ?? 0.0;
+
+        await txn.insert("deudores", {
+          "id_factura": facturaId,
+          "id_cliente": idCliente,
+          "plazo": plazo,
+          "abono": abono,
+        });
+
+        // Marcamos al cliente como deudor
+        if (idCliente != null) {
+          await txn.update(
+            "clientes",
+            {"deudor": 1},
+            where: "id_cliente = ?",
+            whereArgs: [idCliente],
+          );
+        }
+      }
+
       return facturaId;
     });
   }
+
 
 
 
