@@ -108,7 +108,7 @@ class PDFService {
     required String direccionEmisor,
     required String resolucionDIAN,
     required String claveTecnica,
-    required String tipoAmbiente,
+    required String tipoAmbiente, // 1 = pruebas, 2 = producción
     required Cliente cliente,
     required Map<String, VentaItem> carrito,
     required double totalCOP,
@@ -130,6 +130,16 @@ class PDFService {
       _ => "DESCONOCIDO"
     };
 
+    final tipoDocTxt = switch (cliente.idTipoDoc) {
+      1 => "CC",
+      2 => "NIT",
+      3 => "CE",
+      _ => "N/D",
+    };
+
+    // -----------------------
+    // 1️⃣ Generar CUFE
+    // -----------------------
     final dataCufe = [
       numeroFactura,
       fecha.toIso8601String().split('T').first,
@@ -145,8 +155,10 @@ class PDFService {
 
     final cufe = sha384.convert(utf8.encode(dataCufe)).toString();
 
-    final totalConImpuestos =
-    (totalCOP + ivaTotal + otrosImpuestos).toStringAsFixed(0);
+    // -----------------------
+    // 2️⃣ Generar QR
+    // -----------------------
+    final totalConImpuestos = (totalCOP + ivaTotal + otrosImpuestos).toStringAsFixed(0);
 
     final qrData = """
 Factura: $numeroFactura
@@ -167,19 +179,22 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
     final qr = Barcode.qrCode();
     final qrSvg = qr.toSvg(qrData, width: 150, height: 150);
 
+    // -----------------------
+    // 3️⃣ Construir PDF
+    // -----------------------
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.fromLTRB(20, 15, 20, 10),
         build: (context) {
-          const int maxRows = 50;
-          final int emptyRows =
-          (maxRows - carrito.length).clamp(0, maxRows);
+          const int maxRows = 60;
+          final int emptyRows = (maxRows - carrito.length).clamp(0, maxRows);
+          final subtotal = totalCOP - ivaTotal;
 
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // 🧾 Encabezado empresa
+              // 🧾 ENCABEZADO EMPRESA
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
@@ -202,14 +217,126 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
                   ]),
                 ],
               ),
+
+              pw.SizedBox(height: 12),
+
+              // 📄 TABLAS LADO A LADO: Cliente (izquierda) y Fecha de emisión (derecha)
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // 1️⃣ Tabla cliente (izquierda)
+                  pw.Table(
+                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                    columnWidths: const {
+                      0: pw.IntrinsicColumnWidth(),
+                      1: pw.IntrinsicColumnWidth(),
+                    },
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("Cliente",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text(cliente.nombreCompleto ?? cliente.razonSocial ?? ""),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("Dirección",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text(cliente.direccion ?? ""),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("Tipo de identificación",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text(tipoDocTxt),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("No. Identificación",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text(cliente.numeroDocumento),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  pw.SizedBox(width: 150), // ✅ Espacio entre tablas
+
+                  // 2️⃣ Tabla fecha de emisión (derecha)
+                  pw.Table(
+                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                    columnWidths: const {0: pw.IntrinsicColumnWidth()},
+                    children: [
+                      // Encabezado gris
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("Fecha Generación Factura",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      // Fila con fecha centrada
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Center(
+                              child: pw.Text(
+                                fecha.toIso8601String().split('T').first,
+                                style: const pw.TextStyle(fontSize: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+
+
+
+
               pw.SizedBox(height: 10),
 
-              pw.Text(
-                  "Cliente: ${cliente.nombreCompleto ?? cliente.razonSocial ?? ''}"),
-              pw.Text("Documento: ${cliente.numeroDocumento}"),
-              pw.SizedBox(height: 10),
-
-              // 🧩 Tabla sin líneas horizontales, solo verticales y bordes exteriores
+              // 🧩 TABLA DE PRODUCTOS
               pw.Table(
                 border: pw.TableBorder(
                   top: const pw.BorderSide(width: 0.5, color: PdfColors.grey700),
@@ -229,7 +356,7 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
                   5: const pw.FlexColumnWidth(1.5),
                 },
                 children: [
-                  // 🏷️ Encabezado con fondo gris y líneas verticales
+                  // 🏷️ ENCABEZADOS
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
@@ -242,9 +369,9 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
                     ],
                   ),
 
-                  // 📦 Filas con productos
+                  // 📦 FILAS DE PRODUCTOS
                   ...carrito.values.map((item) {
-                    final subtotal = item.subtotal.toInt();
+                    final subtotalItem = item.subtotal.toInt();
                     final iva = (item.product.ivaPct ?? 0);
                     return pw.TableRow(
                       children: [
@@ -253,12 +380,12 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
                         _cell("${item.qty}"),
                         _cell("\$${item.product.precio.toInt()}"),
                         _cell("$iva%"),
-                        _cell("\$${subtotal.toInt()}"),
+                        _cell("\$${subtotalItem.toInt()}"),
                       ],
                     );
                   }),
 
-                  // 🔲 Filas vacías hasta completar 60
+                  // 🔲 FILAS VACÍAS (HASTA 60)
                   ...List.generate(emptyRows, (index) {
                     return pw.TableRow(
                       children: List.generate(6, (_) => _cell("")),
@@ -269,43 +396,135 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
 
               pw.SizedBox(height: 10),
 
-              // 💰 Totales
+              // -----------------------
+// 💰 Sección inferior: Totales y pagos
+// -----------------------
               pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  // 1️⃣ Total de líneas y valor en letras (izquierda arriba)
+                  pw.Table(
+                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                    columnWidths: const {0: pw.IntrinsicColumnWidth()},
                     children: [
-                      pw.Text("Forma de pago: $formaPagoTxt"),
-                      pw.Text("Medio de pago: $medioPagoTxt"),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("Total de líneas y valor en letras",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text("Líneas: ${carrito.length}", style: const pw.TextStyle(fontSize: 10)),
+                                pw.Text("Valor en letras: ${convertirNumeroALetras(totalCOP + ivaTotal + otrosImpuestos)}",
+                                    style: const pw.TextStyle(fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+
+                  pw.SizedBox(width: 20), // Espacio entre tablas
+
+                  // 2️⃣ Forma de pago y medio de pago (centro-izquierda)
+                  pw.Table(
+                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                    columnWidths: const {0: pw.IntrinsicColumnWidth()},
                     children: [
-                      pw.Text(
-                          "Subtotal: \$${(totalCOP - ivaTotal).toStringAsFixed(0)}"),
-                      pw.Text("IVA: \$${ivaTotal.toStringAsFixed(0)}"),
-                      pw.Text(
-                          "Otros impuestos: \$${otrosImpuestos.toStringAsFixed(0)}"),
-                      pw.Text(
-                        "TOTAL: \$${(totalCOP + otrosImpuestos).toStringAsFixed(0)}",
-                        style: pw.TextStyle(
-                            fontSize: 14, fontWeight: pw.FontWeight.bold),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("Forma / Medio de pago",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text("Forma de pago: $formaPagoTxt", style: const pw.TextStyle(fontSize: 10)),
+                                pw.Text("Medio de pago: $medioPagoTxt", style: const pw.TextStyle(fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  pw.SizedBox(width: 20), // Espacio entre tablas
+
+                  // 3️⃣ Totales (derecha)
+                  pw.Table(
+                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+                    columnWidths: const {0: pw.IntrinsicColumnWidth()},
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: PdfColors.grey300,
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Text("Totales",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            padding: const pw.EdgeInsets.all(5),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text("Subtotal: \$${subtotal.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
+                                pw.Text("IVA: \$${ivaTotal.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
+                                pw.Text("Otros impuestos: \$${otrosImpuestos.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
+                                pw.Text(
+                                  "TOTAL: \$${(subtotal + ivaTotal + otrosImpuestos).toStringAsFixed(0)}",
+                                  style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ],
               ),
 
+
               pw.SizedBox(height: 10),
 
               pw.Text("CUFE: $cufe",
                   style: pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+
               pw.SizedBox(height: 15),
+
               pw.Center(child: pw.SvgImage(svg: qrSvg, width: 120, height: 120)),
+
               pw.Spacer(),
+
               pw.Text("Resolución DIAN: $resolucionDIAN",
                   style: pw.TextStyle(fontSize: 9, color: PdfColors.grey)),
             ],
@@ -317,29 +536,70 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
     return pdf.save();
   }
 
+
 // --------------------------
 // 📦 Helpers
 // --------------------------
   static pw.Widget _headerCell(String text) {
-    return pw.Container(
+    return pw.Padding(
       padding: const pw.EdgeInsets.all(4),
-      alignment: pw.Alignment.centerLeft,
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-      ),
+      child: pw.Text(text,
+          style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.black)),
     );
   }
 
   static pw.Widget _cell(String text) {
-    return pw.Container(
+    return pw.Padding(
       padding: const pw.EdgeInsets.all(4),
-      alignment: pw.Alignment.centerLeft,
-      child: pw.Text(
-        text,
-        style: const pw.TextStyle(fontSize: 10),
-      ),
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 10)),
     );
+  }
+
+  static String convertirNumeroALetras(double numero) {
+    final List<String> unidades = [
+      'cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'
+    ];
+    final List<String> decenas = [
+      'diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'
+    ];
+    final List<String> decenasMultiples = [
+      '', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'
+    ];
+    final List<String> centenas = [
+      '', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'
+    ];
+
+    String convertirParteEntera(int numero) {
+      if (numero == 0) return 'cero';
+      if (numero == 100) return 'cien';
+      if (numero < 10) return unidades[numero];
+      if (numero < 20) return decenas[numero - 10];
+      if (numero < 100) {
+        int decena = numero ~/ 10;
+        int unidad = numero % 10;
+        return '${decenasMultiples[decena]}${unidad > 0 ? ' y ${unidades[unidad]}' : ''}';
+      }
+      if (numero < 1000) {
+        int centena = numero ~/ 100;
+        int resto = numero % 100;
+        return '${centenas[centena]}${resto > 0 ? ' ${convertirParteEntera(resto)}' : ''}';
+      }
+      return '';
+    }
+
+    String convertirParteDecimal(int numero) {
+      if (numero == 0) return '';
+      return ' con ${convertirParteEntera(numero)}';
+    }
+
+    int parteEntera = numero.toInt();
+    int parteDecimal = ((numero - parteEntera) * 100).toInt();
+
+    String enteroEnLetras = convertirParteEntera(parteEntera);
+    String decimalEnLetras = convertirParteDecimal(parteDecimal);
+
+    return '$enteroEnLetras$decimalEnLetras pesos';
   }
 
 
