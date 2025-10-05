@@ -158,7 +158,7 @@ class PDFService {
     // -----------------------
     // 2️⃣ Generar QR
     // -----------------------
-    final totalConImpuestos = (totalCOP + ivaTotal + otrosImpuestos).toStringAsFixed(0);
+    final totalConImpuestos = (totalCOP).toStringAsFixed(0);
 
     final qrData = """
 Factura: $numeroFactura
@@ -187,7 +187,7 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.fromLTRB(20, 15, 20, 10),
         build: (context) {
-          const int maxRows = 60;
+          const int maxRows = 40;
           final int emptyRows = (maxRows - carrito.length).clamp(0, maxRows);
           final subtotal = totalCOP - ivaTotal;
 
@@ -397,129 +397,193 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
               pw.SizedBox(height: 10),
 
               // -----------------------
-// 💰 Sección inferior: Totales y pagos
+// 💰 Sección inferior: Totales y pagos organizados
 // -----------------------
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  // 1️⃣ Total de líneas y valor en letras (izquierda arriba)
-                  pw.Table(
-                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
-                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
-                    columnWidths: const {0: pw.IntrinsicColumnWidth()},
+                  // -------------------
+                  // Columna izquierda
+                  // -------------------
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.TableRow(
-                        children: [
-                          pw.Container(
-                            color: PdfColors.grey300,
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Text("Total de líneas y valor en letras",
-                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Column(
-                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      // 1️⃣ Total líneas + Valor en letras
+                      pw.Container(
+                        constraints: const pw.BoxConstraints(maxWidth: 300), // ancho máximo similar a columna descripción
+                        child: pw.Table(
+                          border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                          columnWidths: const {
+                            0: pw.IntrinsicColumnWidth(),
+                            1: pw.FlexColumnWidth(),
+                          },
+                          children: [
+                            pw.TableRow(
                               children: [
-                                pw.Text("Líneas: ${carrito.length}", style: const pw.TextStyle(fontSize: 10)),
-                                pw.Text("Valor en letras: ${convertirNumeroALetras(totalCOP + ivaTotal + otrosImpuestos)}",
-                                    style: const pw.TextStyle(fontSize: 10)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  pw.SizedBox(width: 20), // Espacio entre tablas
-
-                  // 2️⃣ Forma de pago y medio de pago (centro-izquierda)
-                  pw.Table(
-                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
-                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
-                    columnWidths: const {0: pw.IntrinsicColumnWidth()},
-                    children: [
-                      pw.TableRow(
-                        children: [
-                          pw.Container(
-                            color: PdfColors.grey300,
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Text("Forma / Medio de pago",
-                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Column(
-                              crossAxisAlignment: pw.CrossAxisAlignment.start,
-                              children: [
-                                pw.Text("Forma de pago: $formaPagoTxt", style: const pw.TextStyle(fontSize: 10)),
-                                pw.Text("Medio de pago: $medioPagoTxt", style: const pw.TextStyle(fontSize: 10)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  pw.SizedBox(width: 20), // Espacio entre tablas
-
-                  // 3️⃣ Totales (derecha)
-                  pw.Table(
-                    border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
-                    defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
-                    columnWidths: const {0: pw.IntrinsicColumnWidth()},
-                    children: [
-                      pw.TableRow(
-                        children: [
-                          pw.Container(
-                            color: PdfColors.grey300,
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Text("Totales",
-                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                          ),
-                        ],
-                      ),
-                      pw.TableRow(
-                        children: [
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(5),
-                            child: pw.Column(
-                              crossAxisAlignment: pw.CrossAxisAlignment.start,
-                              children: [
-                                pw.Text("Subtotal: \$${subtotal.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
-                                pw.Text("IVA: \$${ivaTotal.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
-                                pw.Text("Otros impuestos: \$${otrosImpuestos.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
-                                pw.Text(
-                                  "TOTAL: \$${(subtotal + ivaTotal + otrosImpuestos).toStringAsFixed(0)}",
-                                  style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                                pw.Container(
+                                  color: PdfColors.grey300,
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(
+                                    "Total líneas",
+                                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text("${carrito.length}", style: const pw.TextStyle(fontSize: 10)),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+                            pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  color: PdfColors.grey300,
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(
+                                    "Valor en letras",
+                                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(
+                                    convertirNumeroALetras(subtotal + ivaTotal + otrosImpuestos),
+                                    style: const pw.TextStyle(fontSize: 10),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      pw.SizedBox(height: 10),
+
+                      // 2️⃣ Forma / Medio de pago
+                      pw.Container(
+                        constraints: const pw.BoxConstraints(maxWidth: 180), // mismo ancho que tabla superior
+                        child: pw.Table(
+                          border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                          columnWidths: const {
+                            0: pw.IntrinsicColumnWidth(),
+                            1: pw.FlexColumnWidth(),
+                          },
+                          children: [
+                            pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  color: PdfColors.grey300,
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(
+                                    "Forma de pago",
+                                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(formaPagoTxt, style: const pw.TextStyle(fontSize: 10)),
+                                ),
+                              ],
+                            ),
+                            pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  color: PdfColors.grey300,
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(
+                                    "Medio de pago",
+                                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.all(4),
+                                  child: pw.Text(medioPagoTxt, style: const pw.TextStyle(fontSize: 10)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
+
+                  pw.SizedBox(width: 70), // espacio entre columnas
+
+                  // -------------------
+                  // Columna derecha: Totales
+                  // -------------------
+                  pw.Expanded(
+                    child: pw.Table(
+                      border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey700),
+                      columnWidths: const {
+                        0: pw.IntrinsicColumnWidth(),
+                        1: pw.FlexColumnWidth(),
+                      },
+                      children: [
+                        pw.TableRow(
+                          children: [
+                            pw.Container(
+                              color: PdfColors.grey300,
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("Subtotal", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("\$${subtotal.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
+                            ),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            pw.Container(
+                              color: PdfColors.grey300,
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("IVA", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("\$${ivaTotal.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
+                            ),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            pw.Container(
+                              color: PdfColors.grey300,
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("Otros impuestos", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("\$${otrosImpuestos.toStringAsFixed(0)}", style: const pw.TextStyle(fontSize: 10)),
+                            ),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            pw.Container(
+                              color: PdfColors.grey300,
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("TOTAL", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(4),
+                              child: pw.Text("\$${(subtotal + ivaTotal + otrosImpuestos).toStringAsFixed(0)}",
+                                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-
-
               pw.SizedBox(height: 10),
 
               pw.Text("CUFE: $cufe",
                   style: pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
 
-              pw.SizedBox(height: 15),
+              pw.SizedBox(height: 8),
 
               pw.Center(child: pw.SvgImage(svg: qrSvg, width: 120, height: 120)),
 
@@ -556,51 +620,116 @@ https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=$cufe
     );
   }
 
-  static String convertirNumeroALetras(double numero) {
-    final List<String> unidades = [
-      'cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'
-    ];
-    final List<String> decenas = [
-      'diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'
-    ];
-    final List<String> decenasMultiples = [
-      '', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'
-    ];
-    final List<String> centenas = [
-      '', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'
+  static String convertirNumeroALetras(double monto) {
+    final unidades = [
+      "",
+      "uno",
+      "dos",
+      "tres",
+      "cuatro",
+      "cinco",
+      "seis",
+      "siete",
+      "ocho",
+      "nueve"
     ];
 
-    String convertirParteEntera(int numero) {
-      if (numero == 0) return 'cero';
-      if (numero == 100) return 'cien';
-      if (numero < 10) return unidades[numero];
-      if (numero < 20) return decenas[numero - 10];
-      if (numero < 100) {
-        int decena = numero ~/ 10;
-        int unidad = numero % 10;
-        return '${decenasMultiples[decena]}${unidad > 0 ? ' y ${unidades[unidad]}' : ''}';
+    final especiales = [
+      "diez",
+      "once",
+      "doce",
+      "trece",
+      "catorce",
+      "quince",
+      "dieciséis",
+      "diecisiete",
+      "dieciocho",
+      "diecinueve"
+    ];
+
+    final decenas = [
+      "",
+      "",
+      "veinte",
+      "treinta",
+      "cuarenta",
+      "cincuenta",
+      "sesenta",
+      "setenta",
+      "ochenta",
+      "noventa"
+    ];
+
+    final centenas = [
+      "",
+      "ciento",
+      "doscientos",
+      "trescientos",
+      "cuatrocientos",
+      "quinientos",
+      "seiscientos",
+      "setecientos",
+      "ochocientos",
+      "novecientos"
+    ];
+
+    String convertirParte(int numero) {
+      if (numero == 0) return "cero";
+      if (numero == 100) return "cien";
+
+      final c = numero ~/ 100;
+      final d = (numero % 100) ~/ 10;
+      final u = numero % 10;
+      final n = numero % 100;
+
+      String resultado = "";
+
+      if (c > 0) resultado += "${centenas[c]} ";
+
+      if (n > 0) {
+        if (n < 10) {
+          resultado += unidades[u];
+        } else if (n >= 10 && n < 20) {
+          resultado += especiales[n - 10];
+        } else {
+          if (d == 2 && u != 0) {
+            resultado += "veinti${unidades[u]}";
+          } else {
+            resultado += decenas[d];
+            if (u != 0) resultado += " y ${unidades[u]}";
+          }
+        }
       }
-      if (numero < 1000) {
-        int centena = numero ~/ 100;
-        int resto = numero % 100;
-        return '${centenas[centena]}${resto > 0 ? ' ${convertirParteEntera(resto)}' : ''}';
-      }
-      return '';
+
+      return resultado.trim();
     }
 
-    String convertirParteDecimal(int numero) {
-      if (numero == 0) return '';
-      return ' con ${convertirParteEntera(numero)}';
+    // Separar miles
+    int entero = monto.floor();
+    int miles = entero ~/ 1000;
+    int resto = entero % 1000;
+
+    String resultado = "";
+    if (miles > 0) {
+      if (miles == 1) {
+        resultado += "mil ";
+      } else {
+        resultado += "${convertirParte(miles)} mil ";
+      }
     }
 
-    int parteEntera = numero.toInt();
-    int parteDecimal = ((numero - parteEntera) * 100).toInt();
+    if (resto > 0) {
+      resultado += "${convertirParte(resto)} ";
+    }
 
-    String enteroEnLetras = convertirParteEntera(parteEntera);
-    String decimalEnLetras = convertirParteDecimal(parteDecimal);
+    resultado = resultado.trim();
 
-    return '$enteroEnLetras$decimalEnLetras pesos';
+    // Agregar "pesos colombianos"
+    resultado = "${resultado.isEmpty ? "cero" : resultado} pesos colombianos";
+
+    return resultado;
   }
+
 
 
 
