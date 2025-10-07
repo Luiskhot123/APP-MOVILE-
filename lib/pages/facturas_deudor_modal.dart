@@ -55,12 +55,10 @@ class FacturasDeudorModal extends StatelessWidget {
               itemBuilder: (context, i) {
                 final f = facturas[i];
 
-                // valores desde la vista y la tabla deudores
                 final subtotal = f['total_base_cop'] ?? 0;
                 final iva = f['total_iva_cop'] ?? 0;
                 final total = f['total_factura_cop'] ?? 0;
                 final plazo = f['plazo'] ?? 0;
-
                 final vencida = plazo <= 0;
 
                 return Container(
@@ -95,35 +93,91 @@ class FacturasDeudorModal extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Factura #${f['codigo_factura'] ?? ''}",
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            const SizedBox(height: 6),
-                            Text("Fecha emisión: ${f['fecha_emision'] ?? ''}",
-                                style: const TextStyle(fontSize: 13)),
-                            const SizedBox(height: 6),
-                            Text("Subtotal: ${_formatCOP(subtotal)}",
-                                style: const TextStyle(fontSize: 13)),
-                            Text("IVA: ${_formatCOP(iva)}",
-                                style: const TextStyle(fontSize: 13)),
-                            Text("Total: ${_formatCOP(total)}",
-                                style: const TextStyle(fontSize: 13)),
-                            const SizedBox(height: 6),
-                            Text(
-                              "Plazo restante: ${plazo} días",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: vencida ? Colors.red : Colors.black,
+                            // Columna izquierda (detalle de factura)
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Factura #${f['codigo_factura'] ?? ''}",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text("Fecha emisión: ${f['fecha_emision'] ?? ''}",
+                                      style: const TextStyle(fontSize: 13)),
+                                  const SizedBox(height: 6),
+                                  Text("Subtotal: ${_formatCOP(subtotal)}",
+                                      style: const TextStyle(fontSize: 13)),
+                                  Text("IVA: ${_formatCOP(iva)}",
+                                      style: const TextStyle(fontSize: 13)),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    "Plazo restante: ${plazo} días",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: vencida ? Colors.red : Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text("Estado: ${f['estado'] ?? ''}",
+                                      style: const TextStyle(fontSize: 13)),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text("Estado: ${f['estado'] ?? ''}",
-                                style: const TextStyle(fontSize: 13)),
+
+                            // Columna derecha (Total centrado con el botón Abonar)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  "Total",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 22,
+                                  ),
+                                ),
+                                Text(
+                                  _formatCOP(total),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: vencida ? Colors.red : Colors.green.shade700,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: 100,
+                                  height: 32,
+                                  child: OutlinedButton(
+                                    onPressed: () {
+                                      // Aquí irá la funcionalidad de abonar
+                                    },
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: Colors.grey.withOpacity(0.15),
+                                      side: BorderSide(color: Colors.grey.shade600, width: 1.2),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Abonar',
+                                      style: TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
