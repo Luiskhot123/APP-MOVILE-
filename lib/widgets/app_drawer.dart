@@ -36,6 +36,13 @@ class AppDrawer extends ConsumerWidget {
             title: const Text("Inventario y Facturación"),
             onTap: () => Navigator.pushReplacementNamed(context, '/home'),
           ),
+          if (isAdmin || canFacturacion)
+            ListTile(
+              leading: const Icon(Icons.people_alt),
+              title: const Text("Deudores"),
+              onTap: () => Navigator.pushReplacementNamed(context, '/deudores'),
+            ),
+
           if (isAdmin && sesion?.idEmpresa != null) ListTile(
             leading: const Icon(Icons.qr_code),
             title: const Text("Generar código de vinculación"),

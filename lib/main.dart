@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:inventario_app/pages/deudores_page.dart';
 import 'package:inventario_app/providers/sesion_provider.dart';
 import 'package:inventario_app/widgets/app_drawer.dart';
 import 'pages/login_page.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
         '/cargar_factura': (_) => const CargarFacturaPage(),
         '/venta': (_) => const VenderPage(),
         '/crear-cliente': (_) => const CrearClientePage(),
+        '/deudores': (context) => const DeudoresPage(),
       },
     );
   }

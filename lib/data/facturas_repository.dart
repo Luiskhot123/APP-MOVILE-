@@ -72,31 +72,6 @@ class FacturasRepository {
           );
         }
       }
-
-      // 6️⃣ Si la factura es a crédito, registramos en deudores
-      if (facturaData["forma_pago_id"] == 2) {
-        final idCliente = facturaData["id_cliente"];
-        final plazo = facturaData["plazo"] ?? 0;
-        final abono = facturaData["abono_inicial"] ?? 0.0;
-
-        await txn.insert("deudores", {
-          "id_factura": facturaId,
-          "id_cliente": idCliente,
-          "plazo": plazo,
-          "abono": abono,
-        });
-
-        // Marcamos al cliente como deudor
-        if (idCliente != null) {
-          await txn.update(
-            "clientes",
-            {"deudor": 1},
-            where: "id_cliente = ?",
-            whereArgs: [idCliente],
-          );
-        }
-      }
-
       return facturaId;
     });
   }

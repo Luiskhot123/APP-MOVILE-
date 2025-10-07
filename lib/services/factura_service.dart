@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import '../data/cliente_repository.dart';
 import '../data/facturas_repository.dart';
+import '../data/deudores_repository.dart'; // <<-- import nuevo
 import '../providers/sesion_provider.dart';
 import '../services/email_service.dart';
 import '../services/pdf_service.dart';
@@ -49,6 +50,7 @@ class FacturaService {
       "id_medio_pago": medioPago,
       "forma_pago_id": formaPago,
       "id_proveedor": null,
+      // no agregamos 'plazo' aquí para evitar insertar una columna inexistente en 'facturas'
     };
 
     final detalles = carrito.values.map((item) => {
@@ -61,8 +63,26 @@ class FacturaService {
     }).toList();
 
     try {
-      // Paso 5️⃣: guardar factura
+      // Paso 5️⃣: guardar factura (solo en la tabla facturas)
       final idFactura = await repo.insertarFactura(facturaData, detalles);
+
+      // -------------------------
+      // Nuevo: si es crédito, registrar en tabla 'deudores' usando el repo específico
+      // -------------------------
+      if (formaPago == 2) {
+        final idCliente = cliente?.idCliente;
+        if (idCliente != null) {
+          final abonoInicial = facturaData['abono_inicial'] ?? 0.0;
+          final deudor = Deudor(
+            idFactura: idFactura,
+            idCliente: idCliente,
+            plazo: plazoDias,
+            abono: (abonoInicial is num) ? (abonoInicial.toDouble()) : double.tryParse(abonoInicial.toString()) ?? 0.0,
+          );
+
+          await DeudoresRepository().insertarDeudor(deudor);
+        }
+      }
 
       // Paso 6️⃣: definir datos del adquiriente
       final adquiriente = cliente ??
@@ -128,7 +148,7 @@ class FacturaService {
     }
   }
 
-  // 🔹 Modal de forma de pago
+// 🔹 Modal de forma de pago
   static Future<int?> _seleccionarFormaPago(BuildContext context) async {
     return showDialog<int>(
       context: context,
@@ -370,3 +390,7 @@ class FacturaService {
     }
   }
 }
+
+
+
+
