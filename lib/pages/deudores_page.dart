@@ -16,7 +16,17 @@ class _DeudoresPageState extends State<DeudoresPage> {
   @override
   void initState() {
     super.initState();
+    _cargarDeudores();
+  }
+
+  void _cargarDeudores() {
     _futureDeudores = DeudoresRepository().obtenerDeudores();
+  }
+
+  Future<void> _refrescarLista() async {
+    setState(() {
+      _cargarDeudores();
+    });
   }
 
   @override
@@ -41,137 +51,146 @@ class _DeudoresPageState extends State<DeudoresPage> {
 
           final deudores = snapshot.data!;
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: deudores.length,
-            itemBuilder: (context, index) {
-              final c = deudores[index];
+          return RefreshIndicator(
+            onRefresh: _refrescarLista,
+            child: ListView.builder(
+              padding: const EdgeInsets.all(8),
+              itemCount: deudores.length,
+              itemBuilder: (context, index) {
+                final c = deudores[index];
 
-              // ✅ Borde rojo si el plazo venció
-              final BorderSide borde = c.diasRestantes <= 0
-                  ? const BorderSide(color: Colors.red, width: 2)
-                  : BorderSide(color: Colors.grey.shade300, width: 1);
+                // ✅ Borde rojo solo si el plazo ya venció
+                final BorderSide borde = c.diasRestantes < 0
+                    ? const BorderSide(color: Colors.red, width: 2)
+                    : BorderSide(color: Colors.grey.shade300, width: 1);
 
-              return InkWell(
-                onTap: () async {
-                  // ✅ Obtener facturas del cliente antes de abrir el modal
-                  final facturas = await DeudoresRepository()
-                      .getFacturasDeCliente(c.idCliente);
+                // ✅ Calcular saldo restante
+                final double saldoRestante =
+                (c.totalDeuda - c.abono).clamp(0, double.infinity);
 
-                  if (facturas.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content:
-                        Text('Este cliente no tiene facturas pendientes'),
+                return InkWell(
+                  onTap: () async {
+                    final facturas = await DeudoresRepository()
+                        .getFacturasDeCliente(c.idCliente);
+
+                    if (facturas.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Este cliente no tiene facturas pendientes')),
+                      );
+                      return;
+                    }
+
+                    final result = await showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => DraggableScrollableSheet(
+                        expand: false,
+                        initialChildSize: 0.75,
+                        minChildSize: 0.4,
+                        maxChildSize: 0.95,
+                        builder: (context, scrollController) {
+                          return FacturasDeudorModal(
+                            facturas: facturas,
+                            nombreCliente: c.nombre,
+                            scrollController: scrollController,
+                          );
+                        },
                       ),
                     );
-                    return;
-                  }
 
-                  // ✅ Mostrar modal deslizable con facturas
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => DraggableScrollableSheet(
-                      expand: false,
-                      initialChildSize: 0.75,
-                      minChildSize: 0.4,
-                      maxChildSize: 0.95,
-                      builder: (context, scrollController) {
-                        return FacturasDeudorModal(
-                          facturas: facturas,
-                          nombreCliente: c.nombre,
-                          scrollController: scrollController,
-                        );
-                      },
+                    // ✅ Refrescar automáticamente tras abono
+                    if (result == true && mounted) {
+                      await Future.delayed(const Duration(milliseconds: 300));
+                      _refrescarLista();
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Card(
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: borde,
                     ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Card(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: borde,
-                  ),
-                  elevation: 3,
-                  margin:
-                  const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 25,
-                          backgroundColor: Colors.blueAccent,
-                          child:
-                          Icon(Icons.person, color: Colors.white, size: 28),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    elevation: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 25,
+                            backgroundColor: Colors.blueAccent,
+                            child: Icon(Icons.person, color: Colors.white, size: 28),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  c.nombre,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  "Correo: ${c.correo}",
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  "Teléfono: ${c.telefono}",
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  "Dirección: ${c.direccion}",
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text(
-                                c.nombre,
-                                style: const TextStyle(
-                                  fontSize: 16,
+                              const Text(
+                                "Saldo restante",
+                                style: TextStyle(
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.black,
                                 ),
                               ),
-                              const SizedBox(height: 6),
                               Text(
-                                "Correo: ${c.correo}",
+                                "\$${saldoRestante.toStringAsFixed(0)}",
                                 style: TextStyle(
-                                  color: Colors.grey[700],
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Text(
-                                "Teléfono: ${c.telefono}",
-                                style: TextStyle(
-                                  color: Colors.grey[700],
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Abono: \$${c.abono.toStringAsFixed(0)}",
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 13,
+                                  fontSize: 18,
+                                  color: saldoRestante > 0
+                                      ? Colors.orange.shade700
+                                      : Colors.green.shade700,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const Text(
-                              "Deuda total",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              "\$${c.totalDeuda.toStringAsFixed(0)}",
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       ),
