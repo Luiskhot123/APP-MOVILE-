@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import '../data/cliente_repository.dart';
 import '../data/facturas_repository.dart';
-import '../data/deudores_repository.dart'; // <<-- import nuevo
+import '../data/deudores_repository.dart';
 import '../providers/sesion_provider.dart';
 import '../services/email_service.dart';
 import '../services/pdf_service.dart';
@@ -24,21 +25,39 @@ class FacturaService {
     if (formaPago == null) return;
 
     int plazoDias = 0;
+    double abonoInicial = 0.0;
+    int medioPago = 1; // Por defecto EFECTIVO
 
     // Paso 2️⃣: si es crédito, validar cliente y seleccionar plazo
     if (formaPago == 2) {
       cliente ??= await mostrarModalValidacionCliente(context);
       if (cliente == null) return; // Cancelado
 
+      // 🔹 Nuevo: preguntar si desea abonar algo
+      final deseaAbonar = await _preguntarDeseaAbonar(context);
+      if (deseaAbonar == null) return; // Cancelado
+
+      if (deseaAbonar) {
+        abonoInicial = await _ingresarAbonoInicial(context, totalCOP) ?? 0.0;
+        // Luego de abonar, seleccionar medio de pago normal
+        final medioSeleccionado = await _seleccionarMedioPago(context);
+        if (medioSeleccionado == null) return;
+        medioPago = medioSeleccionado;
+      } else {
+        // No desea abonar, se pasa por defecto EFECTIVO
+        medioPago = 1;
+      }
+
       plazoDias = await _seleccionarPlazoCredito(context) ?? 0;
       if (plazoDias == 0) return; // Cancelado
+    } else {
+      // Si es CONTADO
+      final medioSeleccionado = await _seleccionarMedioPago(context);
+      if (medioSeleccionado == null) return;
+      medioPago = medioSeleccionado;
     }
 
-    // Paso 3️⃣: seleccionar medio de pago
-    final medioPago = await _seleccionarMedioPago(context);
-    if (medioPago == null) return;
-
-    // Paso 4️⃣: preparar datos de factura
+    // Paso 3️⃣: preparar datos de factura
     final repo = FacturasRepository();
 
     final facturaData = {
@@ -50,7 +69,6 @@ class FacturaService {
       "id_medio_pago": medioPago,
       "forma_pago_id": formaPago,
       "id_proveedor": null,
-      // no agregamos 'plazo' aquí para evitar insertar una columna inexistente en 'facturas'
     };
 
     final detalles = carrito.values.map((item) => {
@@ -63,28 +81,24 @@ class FacturaService {
     }).toList();
 
     try {
-      // Paso 5️⃣: guardar factura (solo en la tabla facturas)
+      // Paso 4️⃣: guardar factura
       final idFactura = await repo.insertarFactura(facturaData, detalles);
 
-      // -------------------------
-      // Nuevo: si es crédito, registrar en tabla 'deudores' usando el repo específico
-      // -------------------------
+      // Paso 5️⃣: si es crédito, registrar en tabla 'deudores'
       if (formaPago == 2) {
         final idCliente = cliente?.idCliente;
         if (idCliente != null) {
-          final abonoInicial = facturaData['abono_inicial'] ?? 0.0;
           final deudor = Deudor(
             idFactura: idFactura,
             idCliente: idCliente,
             plazo: plazoDias,
-            abono: (abonoInicial is num) ? (abonoInicial.toDouble()) : double.tryParse(abonoInicial.toString()) ?? 0.0,
+            abono: abonoInicial, // Abono acumulado inicial
           );
-
           await DeudoresRepository().insertarDeudor(deudor);
         }
       }
 
-      // Paso 6️⃣: definir datos del adquiriente
+      // Paso 6️⃣: generar PDF
       final adquiriente = cliente ??
           Cliente(
             idCliente: -1,
@@ -97,7 +111,6 @@ class FacturaService {
             correo: "",
           );
 
-      // Paso 7️⃣: generar PDF
       final pdfData = await PDFService.generarFacturaDIAN(
         numeroFactura: idFactura.toString(),
         fecha: DateTime.now(),
@@ -117,7 +130,6 @@ class FacturaService {
         cliente: adquiriente,
       );
 
-      // Paso 8️⃣: enviar correo solo si hay cliente con email
       if (cliente?.correo?.isNotEmpty == true) {
         await EmailService.enviarFactura(
           destinatario: cliente!.correo!,
@@ -128,7 +140,6 @@ class FacturaService {
         );
       }
 
-      // Paso 9️⃣: imprimir PDF
       await Printing.layoutPdf(onLayout: (format) async => pdfData);
 
       if (context.mounted) {
@@ -148,7 +159,144 @@ class FacturaService {
     }
   }
 
-// 🔹 Modal de forma de pago
+
+  // Preguntar si desea abonar algo
+  static Future<bool?> _preguntarDeseaAbonar(BuildContext context) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("¿Desea abonar algún monto?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("No"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Sí"),
+          ),
+        ],
+      ),
+    );
+  }
+  // Modal para ingresar el abono inicial
+  static Future<double?> _ccxxx(BuildContext context, int total) async {
+    final controller = TextEditingController();
+    double? valor;
+
+    return showDialog<double>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setState) {
+          return AlertDialog(
+            title: const Text("Ingrese monto del abono"),
+            content: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                prefixText: "\$ ",
+                hintText: "Ej: 5,000",
+              ),
+              onChanged: (val) {
+                val = val.replaceAll(RegExp(r'[^0-9]'), '');
+                if (val.isEmpty) return;
+                final numValue = int.parse(val);
+                if (numValue > total) {
+                  controller.text = total.toString();
+                  controller.selection = TextSelection.fromPosition(
+                      TextPosition(offset: controller.text.length));
+                } else {
+                  controller.text = _formatNumber(numValue);
+                  controller.selection = TextSelection.fromPosition(
+                      TextPosition(offset: controller.text.length));
+                }
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: const Text("Cancelar"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final text = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
+                  valor = double.tryParse(text) ?? 0.0;
+                  Navigator.pop(ctx, valor);
+                },
+                child: const Text("Confirmar"),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+// Formatear número con comas
+  static String _formatNumber(int value) {
+    final str = value.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i != 0 && (str.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(str[i]);
+    }
+    return buffer.toString();
+  }
+
+  // 🔹 Ingresar monto de abono
+  static Future<double?> _ingresarAbonoInicial(BuildContext context, int totalCOP) {
+    final controller = TextEditingController();
+    final formatter = NumberFormat('#,###', 'es_CO');
+
+    return showDialog<double>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setState) {
+          return AlertDialog(
+            title: const Text("Ingrese monto de abono"),
+            content: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: "Monto (máx: ${formatter.format(totalCOP)})",
+                prefixText: "\$ ",
+              ),
+              onChanged: (val) {
+                final raw = val.replaceAll(RegExp(r'[^0-9]'), '');
+                final parsed = int.tryParse(raw) ?? 0;
+                if (parsed > totalCOP) {
+                  controller.text = formatter.format(totalCOP);
+                } else {
+                  controller.text = formatter.format(parsed);
+                }
+                controller.selection = TextSelection.fromPosition(
+                    TextPosition(offset: controller.text.length));
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: const Text("Cancelar"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final raw =
+                  controller.text.replaceAll(RegExp(r'[^0-9]'), '');
+                  final val = double.tryParse(raw) ?? 0.0;
+                  if (val > totalCOP) return;
+                  Navigator.pop(ctx, val);
+                },
+                child: const Text("Aceptar"),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  // 🔹 Modal de forma de pago
   static Future<int?> _seleccionarFormaPago(BuildContext context) async {
     return showDialog<int>(
       context: context,
@@ -272,7 +420,7 @@ class FacturaService {
     final repo = ClienteRepository();
     final formKey = GlobalKey<FormState>();
     final numeroCtrl = TextEditingController();
-    int tipoSeleccionado = 1; // default CC
+    int tipoSeleccionado = 1;
     String? errorDoc;
 
     final tipos = {
@@ -304,8 +452,8 @@ class FacturaService {
                           .toList(),
                       onChanged: (v) =>
                           setState(() => tipoSeleccionado = v ?? 1),
-                      decoration: const InputDecoration(
-                          labelText: 'Tipo documento'),
+                      decoration:
+                      const InputDecoration(labelText: 'Tipo documento'),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -329,7 +477,8 @@ class FacturaService {
                           if (creado == true) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Cliente creado, vuelva a validar'),
+                                content:
+                                Text('Cliente creado, vuelva a validar'),
                               ),
                             );
                           }
@@ -366,6 +515,7 @@ class FacturaService {
       },
     );
   }
+
   static Future<void> confirmarCancelarVenta(BuildContext context) async {
     final salir = await showDialog<bool>(
       context: context,
@@ -373,12 +523,12 @@ class FacturaService {
         title: const Text('¿Desea cancelar la venta?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false), // cerrar modal
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Regresar'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true), // confirmar cancelar
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Cancelar'),
           ),
         ],
@@ -390,7 +540,3 @@ class FacturaService {
     }
   }
 }
-
-
-
-
